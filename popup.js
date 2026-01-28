@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const structuredDataBtn = document.getElementById('structuredDataBtn');
   const pageSpeedBtn = document.getElementById('pageSpeedBtn');
   const facebookDebugBtn = document.getElementById('facebookDebugBtn');
+  const linkedinInspectorBtn = document.getElementById('linkedinInspectorBtn');
 
   structuredDataBtn.addEventListener('click', function() {
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
@@ -23,7 +24,7 @@ document.addEventListener('DOMContentLoaded', function() {
   pageSpeedBtn.addEventListener('click', function() {
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
       const currentUrl = encodeURIComponent(tabs[0].url);
-      const testUrl = `https://pagespeed.web.dev/?url=${currentUrl}`;
+      const testUrl = `https://pagespeed.web.dev/report?url=${currentUrl}`;
       chrome.tabs.create({url: testUrl});
     });
   });
@@ -31,7 +32,15 @@ document.addEventListener('DOMContentLoaded', function() {
   facebookDebugBtn.addEventListener('click', function() {
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
       const currentUrl = encodeURIComponent(tabs[0].url);
-      const testUrl = `https://developers.facebook.com/tools/debug/?url=${currentUrl}`;
+      const testUrl = `https://developers.facebook.com/tools/debug/?q=${currentUrl}`;
+      chrome.tabs.create({url: testUrl});
+    });
+  });
+
+  linkedinInspectorBtn.addEventListener('click', function() {
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+      const currentUrl = encodeURIComponent(tabs[0].url);
+      const testUrl = `https://www.linkedin.com/post-inspector/inspect/${currentUrl}`;
       chrome.tabs.create({url: testUrl});
     });
   });
@@ -105,6 +114,9 @@ function getPageSEOData(doc) {
   const viewport = doc.querySelector('meta[name="viewport"]');
   const canonical = doc.querySelector('link[rel="canonical"]');
   const schema = doc.querySelector('script[type="application/ld+json"]');
+  const gaTag = doc.querySelector('script[src*="googletagmanager"], script[src*="google-analytics"], meta[name="google-site-verification"]') || 
+                 doc.body.innerHTML.includes('gtag') || 
+                 doc.body.innerHTML.includes('GA_MEASUREMENT_ID');
 
   return {
     title: { text: title, length: title.length },
@@ -115,7 +127,8 @@ function getPageSEOData(doc) {
     links: { internal: internalLinks },
     viewport: !!viewport,
     canonical: !!canonical,
-    schema: !!schema
+    schema: !!schema,
+    gaTag: !!gaTag
   };
 }
 
@@ -184,6 +197,13 @@ function displayResults(data) {
       warning: false,
       text: data.schema ? 'Found' : 'Missing',
       tooltip: data.schema ? 'Schema markup found' : 'No schema markup'
+    },
+    {
+      id: 'gaTagStatus',
+      good: data.gaTag,
+      warning: false,
+      text: data.gaTag ? 'Found' : 'Missing',
+      tooltip: data.gaTag ? 'Google Analytics tag found' : 'No Google Analytics tag detected'
     }
   ];
 
@@ -241,6 +261,7 @@ function displayResults(data) {
     <div class="detailed-item"><strong>Viewport:</strong> ${data.viewport ? '<span class="tag">Yes</span>' : '<span class="tag">No</span>'}</div>
     <div class="detailed-item"><strong>Canonical:</strong> ${data.canonical ? '<span class="tag">Yes</span>' : '<span class="tag">No</span>'}</div>
     <div class="detailed-item"><strong>Schema:</strong> ${data.schema ? '<span class="tag">Yes</span>' : '<span class="tag">No</span>'}</div>
+    <div class="detailed-item"><strong>Google Analytics:</strong> ${data.gaTag ? '<span class="tag">Yes</span>' : '<span class="tag">No</span>'}</div>
   `;
 }
 

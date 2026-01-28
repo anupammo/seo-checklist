@@ -8,9 +8,11 @@ What it does:
 ✓ Heading structure analysis
 ✓ Content quality evaluation
 ✓ Technical SEO checks
+✓ Google Analytics / GA Tag detection
 ✓ Quick access to Google Rich Results Testing
 ✓ Google PageSpeed Insights integration
 ✓ Facebook Sharing Debugger access
+✓ LinkedIn Post Inspector access
 
 Why choose us:
 🔍 No data collection - 100% private
@@ -28,4 +30,4 @@ Perfect for:
 
 Install now to optimize pages in seconds!
 
-Keywords: seo analyzer, on-page optimization, meta tag checker, content audit, technical seo, ranking factors, rich snippets, page speed, facebook sharing
+Keywords: seo analyzer, on-page optimization, meta tag checker, content audit, technical seo, ranking factors, rich snippets, page speed, facebook sharing, linkedin sharing, google analytics, ga tag
