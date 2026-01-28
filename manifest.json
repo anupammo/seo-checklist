@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "SEO Checklist",
   "version": "1.2",
-  "description": "Real-time on-page SEO analysis with 2025 optimization metrics",
+  "description": "Real-time on-page SEO analysis with 2025 optimization metrics and quick access to SEO testing tools",
   "action": {
     "default_popup": "popup.html",
     "default_icon": {

@@ -7,6 +7,35 @@ document.addEventListener('DOMContentLoaded', function() {
   const scoreProgress = document.getElementById('scoreProgress');
   const scoreFeedback = document.getElementById('scoreFeedback');
 
+  // Test Tools Button Handlers
+  const structuredDataBtn = document.getElementById('structuredDataBtn');
+  const pageSpeedBtn = document.getElementById('pageSpeedBtn');
+  const facebookDebugBtn = document.getElementById('facebookDebugBtn');
+
+  structuredDataBtn.addEventListener('click', function() {
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+      const currentUrl = encodeURIComponent(tabs[0].url);
+      const testUrl = `https://search.google.com/test/rich-results?url=${currentUrl}`;
+      chrome.tabs.create({url: testUrl});
+    });
+  });
+
+  pageSpeedBtn.addEventListener('click', function() {
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+      const currentUrl = encodeURIComponent(tabs[0].url);
+      const testUrl = `https://pagespeed.web.dev/?url=${currentUrl}`;
+      chrome.tabs.create({url: testUrl});
+    });
+  });
+
+  facebookDebugBtn.addEventListener('click', function() {
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+      const currentUrl = encodeURIComponent(tabs[0].url);
+      const testUrl = `https://developers.facebook.com/tools/debug/?url=${currentUrl}`;
+      chrome.tabs.create({url: testUrl});
+    });
+  });
+
   analyzeBtn.addEventListener('click', function() {
     loading.classList.remove('hidden');
     resultsContainer.classList.add('hidden');

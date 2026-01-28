@@ -30,6 +30,11 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
 - **Tooltips**: Hover for actual content and recommendations.
 - **Accordion UI**: Expand/collapse categories for a clean, modern look.
 - **Loading Indicator**: See when analysis is running.
+- **Test Recent URL Tools**: Quick access to external SEO testing tools:
+  - **Structured Data / Rich Results** – Test with Google's Rich Result Testing Tool
+  - **Google PageSpeed Insights** – Analyze page performance and loading speed
+  - **Facebook Sharing Debugger** – Preview how your page appears when shared on Facebook
+  - Each tool opens in a new tab with your current page URL automatically pre-filled
 - **Works on Most Pages**: (Not available on Chrome Web Store, extensions, or `chrome://` pages due to browser restrictions.)
 
 ---
@@ -47,9 +52,14 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
 ## Usage
 
 1. Visit any website you want to analyze.
-2. Click the SEO Vision extension icon in your Chrome toolbar.
-3. Click **"Analyze Current Page"**.
-4. View your SEO score, checklist, and detailed results instantly.
+2. Click the SEO Checklist extension icon in your Chrome toolbar.
+3. Choose your action:
+   - **Analyze Current Page** – Perform a detailed on-page SEO analysis with scoring and checklist
+   - **Test Recent URL** – Use external SEO tools to test your page:
+     - Click **Structured Data** to test rich snippets and schema markup with Google's tool
+     - Click **PageSpeed Insights** to check performance metrics and optimization suggestions
+     - Click **Facebook Debugger** to preview page sharing appearance on Facebook
+4. View your SEO score, checklist, and detailed results instantly, or check external tool results in a new tab.
 
 ---
 
