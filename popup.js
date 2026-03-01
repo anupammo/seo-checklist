@@ -4,8 +4,9 @@ document.addEventListener('DOMContentLoaded', function() {
   const resultsContainer = document.getElementById('resultsContainer');
   const detailedResults = document.getElementById('detailedResults');
   const seoScore = document.getElementById('seoScore');
-  const scoreProgress = document.getElementById('scoreProgress');
+  const scoreCard = document.querySelector('.score-card');
   const scoreFeedback = document.getElementById('scoreFeedback');
+  const socialPreview = document.getElementById('socialPreview');
 
   // Test Tools Button Handlers
   const structuredDataBtn = document.getElementById('structuredDataBtn');
@@ -50,7 +51,7 @@ document.addEventListener('DOMContentLoaded', function() {
     resultsContainer.classList.add('hidden');
     detailedResults.innerHTML = '';
     seoScore.textContent = '0%';
-    scoreProgress.style.width = '0%';
+    updateSpeedometer(scoreCard, 0);
     scoreFeedback.textContent = 'Initializing analysis...';
 
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
@@ -73,15 +74,38 @@ document.addEventListener('DOMContentLoaded', function() {
           const html = results[0].result;
           const parser = new DOMParser();
           const doc = parser.parseFromString(html, 'text/html');
-          const data = getPageSEOData(doc);
+          const data = getPageSEOData(doc, tab.url);
           displayResults(data);
           resultsContainer.classList.remove('hidden');
+          checkBrokenLinks(data.links.internalUrls, data.links.externalCount);
         } catch (e) {
           alert('Error analyzing HTML: ' + e.message);
         } finally {
           loading.classList.add('hidden');
         }
       });
+    });
+  });
+
+  // Load social preview on popup open
+  chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+    const tab = tabs[0];
+    chrome.scripting.executeScript({
+      target: {tabId: tab.id},
+      func: () => {
+        const title = document.querySelector('meta[property="og:title"]')?.content || document.querySelector('meta[name="twitter:title"]')?.content || document.title || '';
+        const description = document.querySelector('meta[property="og:description"]')?.content || document.querySelector('meta[name="twitter:description"]')?.content || document.querySelector('meta[name="description"]')?.content || '';
+        const image = document.querySelector('meta[property="og:image"]')?.content || document.querySelector('meta[name="twitter:image"]')?.content || '';
+        const url = document.querySelector('meta[property="og:url"]')?.content || window.location.href;
+        return { title, description, image, url };
+      }
+    }, (results) => {
+      if (results && results[0] && results[0].result) {
+        const data = results[0].result;
+        displaySocialPreview(data);
+      } else {
+        displaySocialPreview(null);
+      }
     });
   });
 
@@ -94,7 +118,28 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
-function getPageSEOData(doc) {
+function displaySocialPreview(data) {
+  if (data && (data.title || data.description || data.image)) {
+    socialPreview.innerHTML = `
+      <div class="social-preview-card">
+        ${data.image ? `<img src="${data.image}" alt="Social Preview Image" onerror="this.parentElement.innerHTML='<div class=\\'image-error\\'>Image not available</div>'">` : '<div class="image-error">No image</div>'}
+        <div class="social-preview-content">
+          <h4>${data.title || 'No Title'}</h4>
+          <p>${data.description || 'No Description'}</p>
+          <small>${data.url}</small>
+        </div>
+      </div>
+    `;
+  } else {
+    socialPreview.innerHTML = `
+      <div class="social-preview-placeholder">
+        No Social Preview Available
+      </div>
+    `;
+  }
+}
+
+function getPageSEOData(doc, pageUrl) {
   function countWords(text) {
     return text ? text.trim().split(/\s+/).length : 0;
   }
@@ -107,10 +152,23 @@ function getPageSEOData(doc) {
   const wordCount = countWords(mainContent.textContent);
   const images = doc.querySelectorAll('img');
   const imagesWithAlt = Array.from(images).filter(img => img.alt && img.alt.trim()).length;
-  const internalLinks = Array.from(doc.querySelectorAll('a')).filter(a => {
-    const href = a.getAttribute('href');
-    return href && !href.startsWith('http') && !href.startsWith('mailto:') && !href.startsWith('tel:');
-  }).length;
+  const baseOrigin = pageUrl ? new URL(pageUrl).origin : null;
+  const resolvedLinks = Array.from(doc.querySelectorAll('a[href]'))
+    .map(a => a.getAttribute('href'))
+    .filter(href => href && !href.startsWith('mailto:') && !href.startsWith('tel:') && !href.startsWith('javascript:'))
+    .map(href => {
+      try {
+        const url = new URL(href, pageUrl).toString();
+        const origin = new URL(url).origin;
+        return { url, isExternal: baseOrigin ? origin !== baseOrigin : false };
+      } catch (e) {
+        return null;
+      }
+    })
+    .filter(Boolean);
+
+  const internalUrls = resolvedLinks.filter(link => !link.isExternal).map(link => link.url);
+  const externalCount = resolvedLinks.filter(link => link.isExternal).length;
   const viewport = doc.querySelector('meta[name="viewport"]');
   const canonical = doc.querySelector('link[rel="canonical"]');
   const schema = doc.querySelector('script[type="application/ld+json"]');
@@ -124,7 +182,7 @@ function getPageSEOData(doc) {
     headings: { h1: h1.length, h2: h2.length },
     content: { wordCount },
     images: { total: images.length, withAlt: imagesWithAlt },
-    links: { internal: internalLinks },
+    links: { internal: internalUrls.length, internalUrls, externalCount },
     viewport: !!viewport,
     canonical: !!canonical,
     schema: !!schema,
@@ -175,6 +233,13 @@ function displayResults(data) {
       good: data.links.internal >= 3,
       warning: data.links.internal > 0 && data.links.internal < 3,
       text: `${data.links.internal} links`,
+      tooltip: ''
+    },
+    {
+      id: 'externalLinksStatus',
+      good: data.links.externalCount >= 1,
+      warning: false,
+      text: `${data.links.externalCount} links`,
       tooltip: ''
     },
     {
@@ -235,7 +300,7 @@ function displayResults(data) {
   // Show score
   const percent = Math.round((score / total) * 100);
   document.getElementById('seoScore').textContent = percent + '%';
-  document.getElementById('scoreProgress').style.width = percent + '%';
+  updateSpeedometer(document.querySelector('.score-card'), percent);
 
   // Feedback
   let feedback = '';
@@ -250,6 +315,9 @@ function displayResults(data) {
   }
   document.getElementById('scoreFeedback').textContent = feedback;
 
+  setBrokenLinksStatus('Checking...', 'warning', 'Checking links for errors');
+  resetBrokenLinksUI(data.links.internalUrls.length, data.links.externalCount);
+
   // Detailed results
   const detailedResults = document.getElementById('detailedResults');
   detailedResults.innerHTML = `
@@ -258,11 +326,160 @@ function displayResults(data) {
     <div class="detailed-item"><strong>Content Words:</strong> ${data.content.wordCount}</div>
     <div class="detailed-item"><strong>Images with Alt:</strong> ${data.images.withAlt} / ${data.images.total}</div>
     <div class="detailed-item"><strong>Internal Links:</strong> ${data.links.internal}</div>
+    <div class="detailed-item"><strong>External Links:</strong> ${data.links.externalCount}</div>
     <div class="detailed-item"><strong>Viewport:</strong> ${data.viewport ? '<span class="tag">Yes</span>' : '<span class="tag">No</span>'}</div>
     <div class="detailed-item"><strong>Canonical:</strong> ${data.canonical ? '<span class="tag">Yes</span>' : '<span class="tag">No</span>'}</div>
     <div class="detailed-item"><strong>Schema:</strong> ${data.schema ? '<span class="tag">Yes</span>' : '<span class="tag">No</span>'}</div>
     <div class="detailed-item"><strong>Google Analytics:</strong> ${data.gaTag ? '<span class="tag">Yes</span>' : '<span class="tag">No</span>'}</div>
   `;
+}
+
+const LINK_CHECK_LIMIT = 50;
+const LINK_CHECK_CONCURRENCY = 6;
+
+function resetBrokenLinksUI(totalLinks, externalCount) {
+  const summary = document.getElementById('brokenLinksSummary');
+  const list = document.getElementById('brokenLinksList');
+  if (summary) {
+    const externalNote = externalCount ? ` External links skipped: ${externalCount}.` : '';
+    summary.textContent = totalLinks > 0 ? `Checking ${totalLinks} internal link(s)...${externalNote}` : `No internal links found.${externalNote}`;
+  }
+  if (list) {
+    list.innerHTML = '';
+  }
+  if (totalLinks === 0) {
+    setBrokenLinksStatus('0 links', 'good', 'No internal links to check');
+  }
+}
+
+function setBrokenLinksStatus(text, statusClass, tooltip) {
+  const el = document.getElementById('brokenLinksStatus');
+  if (!el) return;
+  el.textContent = text;
+  el.className = `status ${statusClass}`;
+  if (tooltip) {
+    el.setAttribute('data-tooltip', tooltip);
+  }
+}
+
+function isHttpUrl(url) {
+  return url.startsWith('http://') || url.startsWith('https://');
+}
+
+async function checkBrokenLinks(urls, externalCount) {
+  const uniqueUrls = Array.from(new Set(urls)).filter(isHttpUrl);
+  if (uniqueUrls.length === 0) {
+    return;
+  }
+
+  const limitedUrls = uniqueUrls.slice(0, LINK_CHECK_LIMIT);
+  const skippedCount = Math.max(0, uniqueUrls.length - limitedUrls.length);
+
+  const results = await runLinkChecks(limitedUrls, LINK_CHECK_CONCURRENCY);
+  const broken = results.filter(result => result.broken);
+  renderBrokenLinks(broken, {
+    checked: limitedUrls.length,
+    skipped: skippedCount,
+    total: uniqueUrls.length,
+    external: externalCount
+  });
+}
+
+async function runLinkChecks(urls, concurrency) {
+  const results = [];
+  let currentIndex = 0;
+
+  const workers = new Array(Math.min(concurrency, urls.length)).fill(null).map(async () => {
+    while (currentIndex < urls.length) {
+      const url = urls[currentIndex];
+      currentIndex += 1;
+      const result = await checkSingleLink(url);
+      results.push(result);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
+
+async function checkSingleLink(url) {
+  try {
+    const response = await fetch(url, {
+      method: 'HEAD',
+      cache: 'no-store',
+      redirect: 'follow'
+    });
+
+    if (response.type === 'opaque') {
+      return { url, broken: false, status: 'opaque' };
+    }
+
+    if (response.status === 405 || response.status === 501) {
+      return checkSingleLinkWithGet(url);
+    }
+
+    return { url, broken: response.status >= 400, status: response.status };
+  } catch (error) {
+    return { url, broken: true, status: 0, error: error.message };
+  }
+}
+
+async function checkSingleLinkWithGet(url) {
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      cache: 'no-store',
+      redirect: 'follow'
+    });
+
+    if (response.type === 'opaque') {
+      return { url, broken: false, status: 'opaque' };
+    }
+
+    return { url, broken: response.status >= 400, status: response.status };
+  } catch (error) {
+    return { url, broken: true, status: 0, error: error.message };
+  }
+}
+
+function renderBrokenLinks(brokenLinks, meta) {
+  const summary = document.getElementById('brokenLinksSummary');
+  const list = document.getElementById('brokenLinksList');
+
+  if (!summary || !list) return;
+
+  list.innerHTML = '';
+
+  if (brokenLinks.length === 0) {
+    const skippedNote = meta.skipped ? ` (${meta.skipped} skipped)` : '';
+    const externalNote = meta.external ? ` External links skipped: ${meta.external}.` : '';
+    summary.textContent = `No broken internal links found. Checked ${meta.checked}.${skippedNote}${externalNote}`;
+    setBrokenLinksStatus('0 broken', 'good', 'No broken links detected');
+    return;
+  }
+
+  const skippedText = meta.skipped ? `, ${meta.skipped} skipped` : '';
+  const externalText = meta.external ? `. External links skipped: ${meta.external}.` : '.';
+  summary.textContent = `${brokenLinks.length} broken internal link(s) found. Checked ${meta.checked}${skippedText}${externalText}`;
+  setBrokenLinksStatus(`${brokenLinks.length} broken`, 'bad', 'Broken internal links detected');
+
+  brokenLinks.forEach(item => {
+    const li = document.createElement('li');
+    const anchor = document.createElement('a');
+    anchor.href = item.url;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+    anchor.textContent = item.url;
+    li.appendChild(anchor);
+
+    if (item.status && item.status !== 'opaque') {
+      const status = document.createElement('span');
+      status.textContent = ` (status: ${item.status})`;
+      li.appendChild(status);
+    }
+
+    list.appendChild(li);
+  });
 }
 
 // Utility to escape HTML for safe display
@@ -277,4 +494,25 @@ function escapeHtml(text) {
       "'": '&#39;'
     })[m];
   });
+}
+
+function updateSpeedometer(card, percent) {
+  if (!card) return;
+  const clamped = Math.max(0, Math.min(100, percent));
+  const angle = (clamped / 100) * 180;
+  const rotate = angle - 90;
+  
+  // Arc length of semicircle with radius 110: π * 110 ≈ 345.575
+  const arcLength = Math.PI * 110;
+  const dashoffset = arcLength * (1 - clamped / 100);
+  
+  // Set CSS variables
+  card.style.setProperty('--score-angle', `${angle}deg`);
+  card.style.setProperty('--score-rotate', `${rotate}deg`);
+  
+  // Update SVG stroke-dashoffset
+  const ringElement = card.querySelector('.speedometer-ring');
+  if (ringElement) {
+    ringElement.style.strokeDashoffset = dashoffset;
+  }
 }
