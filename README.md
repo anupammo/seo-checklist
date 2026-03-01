@@ -1,5 +1,5 @@
 
-# SEO Checklist – On-Page SEO Analyzer Chrome Extension
+# SEO Checklist v1.3 – On-Page SEO Analyzer Chrome Extension
 
 SEO Checklist is a modern, privacy-friendly Chrome extension that provides instant, client-side on-page SEO analysis for any website you visit. It gives you a clear, actionable checklist and visual feedback to help you optimize your pages for search engines—no server, no data collection, no permissions beyond what’s needed.
 
@@ -8,6 +8,31 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
 ## Install from Chrome Web Store
 
 [**Install SEO Checklist from the Chrome Web Store**](https://chromewebstore.google.com/detail/seo-checklist/jgigdhidhmgikfnccdnehcpgoggmagfh?hl=en-GB&authuser=0)
+
+---
+
+## What’s New in v1.3 (March 2026)
+
+- **Social Preview Analyzer**: Instantly preview Open Graph and Twitter-style title, description, image, and URL metadata.
+- **Quick SEO Testing Tool Launcher**: Open Rich Results Test, PageSpeed Insights, Facebook Sharing Debugger, and LinkedIn Post Inspector with one click.
+- **Broken Link Visibility**: Better internal-link quality checks with status feedback in the popup.
+- **Performance + Workflow Benefits**:
+  - Reduce manual QA time for technical SEO checks.
+  - Catch metadata and sharing-preview issues before publishing.
+  - Validate on-page SEO and off-page sharing readiness from one extension.
+
+---
+
+## v1.3 Keyword Strategy
+
+To improve discoverability for this release, core copy targets high-intent phrases naturally in headings and feature text:
+
+- **Primary keywords**: Chrome SEO extension, on-page SEO checker, SEO checklist extension.
+- **Feature keywords**: meta tag analyzer, social preview checker, schema markup tester, PageSpeed checker.
+- **Problem-solution keywords**: fix SEO issues, improve SERP visibility, technical SEO audit for pages.
+- **Distribution keywords**: Chrome Web Store SEO tool, website SEO analyzer for marketers and developers.
+
+Use these phrases in release notes, store listing copy, screenshot captions, and update announcements with natural language (avoid keyword stuffing).
 
 ---
 
@@ -32,6 +57,8 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
 - **Accordion UI**: Expand/collapse categories for a clean, modern look.
 - **Loading Indicator**: See when analysis is running.
 - **Google Analytics Detection**: Detects if Google Analytics or Google Tag Manager is installed on your page
+- **Social Preview Card**: Preview social metadata (title, description, image, URL) directly in the extension popup.
+- **Broken Link Check Status**: Checks internal links and reports broken-link status for faster technical cleanup.
 - **Test Recent URL Tools**: Quick access to external SEO testing tools:
   - **Structured Data / Rich Results** – Test with Google's Rich Result Testing Tool
   - **Google PageSpeed Insights** – Analyze page performance and loading speed
@@ -142,7 +169,7 @@ Do **not** include `marketing/` or `screenshots/` folders in the upload ZIP. Upl
 
 ## Privacy
 
-SEO Vision does **not** collect, store, or transmit any data. All analysis is performed locally in your browser.
+SEO Checklist does **not** collect, store, or transmit any data. All analysis is performed locally in your browser.
 
 ---
 
