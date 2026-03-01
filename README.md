@@ -23,16 +23,97 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
 
 ---
 
-## v1.3 Keyword Strategy
+## v1.3 Keyword Strategy (Chrome Web Store Growth)
 
-To improve discoverability for this release, core copy targets high-intent phrases naturally in headings and feature text:
+This strategy uses your full keyword list with intent clustering, natural placement, and conversion-focused copy to improve ranking relevance and organic installs.
 
-- **Primary keywords**: Chrome SEO extension, on-page SEO checker, SEO checklist extension.
-- **Feature keywords**: meta tag analyzer, social preview checker, schema markup tester, PageSpeed checker.
-- **Problem-solution keywords**: fix SEO issues, improve SERP visibility, technical SEO audit for pages.
-- **Distribution keywords**: Chrome Web Store SEO tool, website SEO analyzer for marketers and developers.
+### A) Primary SEO Keywords (High Priority)
 
-Use these phrases in release notes, store listing copy, screenshot captions, and update announcements with natural language (avoid keyword stuffing).
+Use these in title context, first paragraph, and feature highlights:
+
+- chrome web store
+- google chrome web store
+- google chrome extension
+- on page seo checklist
+- seo audit
+- website seo checklist
+- free seo
+- free seo checklist
+- free seo audit
+- basic seo checklist
+
+### B) Discovery + Distribution Keywords (Medium Priority)
+
+Use these across subheadings, feature bullets, and benefit sections:
+
+- chrome extension store
+- chrome store
+- chrome web
+- chrome website
+- chrome addons
+- chrome web store extensions
+- google chrome extension store
+- chrome app
+- google chrome store
+- chrome web extensions
+- web chrome extension
+- plugin chrome
+- google chrome
+- free extension
+- google web store
+- google chrome website
+- chrome page
+- checklist seo
+- seo web
+- web for chrome
+- chrome web browser
+- chromebook web store
+
+### C) Install/Action Keywords (Conversion Priority)
+
+Use these near CTA blocks and install instructions:
+
+- chrome install
+- open chrome
+- download extension chrome
+- chrome web store download
+- add extension to chrome
+- load chrome
+- install extension chrome
+- chrome setup
+- use chrome
+- free chrome
+
+### D) Niche/Support Keywords (Use Sparingly)
+
+Include these once in supporting copy to avoid over-optimization:
+
+- accessibility chrome extension
+- chrome accessibility extension
+- chrome extension developer
+- chrome do
+
+### Placement Strategy for Best SEO Impact
+
+- **Top 120 words**: Include 3–5 primary keywords + one install-intent phrase.
+- **Feature section**: Add 5–8 discovery keywords naturally in benefit-led bullets.
+- **CTA section**: Use install/action keywords (`add extension to chrome`, `install extension chrome`) near action copy.
+- **Keyword density**: Keep language natural; avoid repeating exact phrases unnaturally.
+- **Metadata consistency**: Reuse core terms in store title, summary, description, screenshots, and release notes.
+
+### Keyword-Optimized Store Description (Ready to Use)
+
+SEO Checklist is a practical **google chrome extension** for fast **seo audit** workflows and a complete **on page seo checklist** process. If you are searching the **chrome extension store**, **google chrome extension store**, or **google chrome web store** for a reliable SEO tool, this **web chrome extension** helps you run a high-impact **website seo checklist** in minutes.
+
+From one popup, you can review title/meta quality, heading structure, content depth, image alt coverage, internal and external links, canonical and viewport tags, schema presence, analytics detection, and broken-link status. It works as a **free seo** and **free seo audit** companion for daily optimization, whether you are a marketer, founder, publisher, or **chrome extension developer** managing technical quality on every **chrome page**.
+
+SEO Checklist also supports faster validation with social preview checks and one-click launch access to Rich Results Test, PageSpeed Insights, Facebook Sharing Debugger, and LinkedIn Post Inspector. For teams using **checklist seo**, **basic seo checklist**, or broader **seo web** workflows, this **plugin chrome** option keeps audits clear, visual, and actionable.
+
+Install is simple: open the **chrome web store**, find SEO Checklist in **chrome web store extensions**, and **add extension to chrome**. You can **download extension chrome** quickly, complete **chrome setup**, and start audits right away in your **chrome web browser**. If users search for **chrome store**, **google chrome store**, **google web store**, **chrome addons**, **chrome web extensions**, **chrome app**, **web for chrome**, **chrome website**, or **google chrome website**, this listing aligns with those intents while keeping copy natural.
+
+SEO Checklist is a privacy-focused **free extension** built for people who use **google chrome** every day. Whether you **open chrome**, **load chrome**, or **use chrome** on desktop and **chromebook web store** ecosystems, this tool helps you optimize pages faster and with more confidence.
+
+Additional intent terms included for broad-match coverage: **chrome install**, **chrome web store download**, **install extension chrome**, **free chrome**, **accessibility chrome extension**, **chrome accessibility extension**, and **chrome do**.
 
 ---
 
