@@ -204,8 +204,12 @@ body {
 
 .checklist {
   padding: 0 16px 16px;
-  display: grid;
+  display: none;
   gap: 12px;
+}
+
+.category.open .checklist {
+  display: grid;
 }
 
 .checklist-item {
@@ -323,10 +327,10 @@ body {
 .test-tools-title {
   font-size: 12px;
   font-weight: 600;
-  color: var(--gray);
+  color: var(--primary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 12px;
+  margin: 12px 0 8px;
   padding-left: 4px;
   text-align: center;
 }
@@ -406,6 +410,56 @@ body {
   box-shadow: var(--shadow);
 }
 
+.detailed-toggle {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.detailed-toggle[aria-expanded="true"] .analysis-arrow {
+  transform: rotate(180deg);
+}
+
+.detailed-results-content {
+  margin-top: 12px;
+}
+
+.report-actions {
+  margin-top: 10px;
+}
+
+.export-report-btn {
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.export-report-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.export-report-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .detailed-results h3 {
   font-size: 16px;
   margin-bottom: 12px;
@@ -416,6 +470,101 @@ body {
   margin-top: 16px;
   border-top: 1px solid #e9ecef;
   padding-top: 12px;
+}
+
+.analysis-section {
+  margin-top: 16px;
+  border-top: 1px solid #e9ecef;
+  padding-top: 12px;
+}
+
+.analysis-toggle {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dark);
+  cursor: pointer;
+  text-align: left;
+}
+
+.analysis-arrow {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.analysis-arrow svg {
+  width: 16px;
+  height: 16px;
+}
+
+.analysis-toggle[aria-expanded="true"] .analysis-arrow {
+  transform: rotate(180deg);
+}
+
+.analysis-content {
+  margin-top: 8px;
+}
+
+.links-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.links-tab {
+  border: 1px solid #e0e7ff;
+  background: white;
+  color: var(--dark);
+  border-radius: 18px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.links-tab.active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.links-panel {
+  margin-top: 6px;
+}
+
+.ordered-links-list {
+  margin: 0;
+  padding-left: 24px;
+  display: grid;
+  gap: 6px;
+}
+
+.ordered-links-list li {
+  background: var(--light);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.ordered-links-list a {
+  color: var(--error);
+  text-decoration: none;
+}
+
+.ordered-links-list a:hover {
+  text-decoration: underline;
 }
 
 .link-health h4 {
@@ -445,6 +594,11 @@ body {
   font-size: 12px;
   line-height: 1.4;
   word-break: break-all;
+}
+
+.broken-links-list li div {
+  color: var(--gray);
+  margin-top: 4px;
 }
 
 .broken-links-list a {
@@ -485,6 +639,51 @@ p.dev-cred a {
   color: var(--primary);
   text-decoration: none;
   font-weight: bold;
+}
+
+.extension-cta {
+  display: block;
+  margin-top: 12px;
+  background: white;
+  border: 1px solid #e0e7ff;
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: var(--shadow);
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.extension-cta:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.extension-cta-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--dark);
+  margin-bottom: 3px;
+}
+
+.extension-cta-subtitle {
+  font-size: 12px;
+  color: var(--gray);
+  line-height: 1.4;
+  margin-bottom: 0;
+}
+
+.extension-cta-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+
+.extension-cta-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  flex-shrink: 0;
 }
 
 .social-preview {

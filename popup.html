@@ -173,17 +173,87 @@
       </div>
 
       <div class="detailed-results">
-        <h3>Detailed Analysis</h3>
-        <div id="detailedResults"></div>
-        <div class="link-health">
-          <h4>Broken Internal Links</h4>
-          <div id="brokenLinksSummary" class="broken-links-summary">-</div>
-          <ul id="brokenLinksList" class="broken-links-list"></ul>
+        <button type="button" class="detailed-toggle" data-target="detailedResultsContent" aria-expanded="true">
+          <span>Detailed Analysis</span>
+          <span class="analysis-arrow" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </span>
+        </button>
+        <div class="report-actions">
+          <button id="exportPdfBtn" type="button" class="export-report-btn" disabled>Export PDF Report</button>
         </div>
-        <div class="link-health">
-          <h4>Image Optimization Opportunities</h4>
-          <div id="imageOptimizationSummary" class="broken-links-summary">-</div>
-          <ul id="imageOptimizationList" class="broken-links-list"></ul>
+        <div id="detailedResultsContent" class="detailed-results-content">
+        <div id="detailedResults"></div>
+        <div class="analysis-section open" data-section="broken-links">
+          <button type="button" class="analysis-toggle" data-target="brokenLinksContent" aria-expanded="true">
+            <span>Broken Internal Links</span>
+            <span class="analysis-arrow" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+              </svg>
+            </span>
+          </button>
+          <div id="brokenLinksContent" class="analysis-content">
+            <div id="brokenLinksSummary" class="broken-links-summary">-</div>
+            <ul id="brokenLinksList" class="broken-links-list"></ul>
+          </div>
+        </div>
+
+        <div class="analysis-section" data-section="image-optimization">
+          <button type="button" class="analysis-toggle" data-target="imageOptimizationContent" aria-expanded="false">
+            <span>Image Optimization Opportunities</span>
+            <span class="analysis-arrow" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+              </svg>
+            </span>
+          </button>
+          <div id="imageOptimizationContent" class="analysis-content hidden">
+            <div id="imageOptimizationSummary" class="broken-links-summary">-</div>
+            <ul id="imageOptimizationList" class="broken-links-list"></ul>
+          </div>
+        </div>
+
+        <div class="analysis-section" data-section="links-overview">
+          <button type="button" class="analysis-toggle" data-target="linksOverviewContent" aria-expanded="false">
+            <span>Internal / External Links</span>
+            <span class="analysis-arrow" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+              </svg>
+            </span>
+          </button>
+          <div id="linksOverviewContent" class="analysis-content hidden">
+            <div id="linksOverviewSummary" class="broken-links-summary">-</div>
+            <div class="links-tabs" role="tablist" aria-label="Links tabs">
+              <button type="button" class="links-tab active" data-tab="internalLinksPanel" aria-selected="true">Internal</button>
+              <button type="button" class="links-tab" data-tab="externalLinksPanel" aria-selected="false">External</button>
+            </div>
+            <div id="internalLinksPanel" class="links-panel">
+              <ol id="internalLinksList" class="ordered-links-list"></ol>
+            </div>
+            <div id="externalLinksPanel" class="links-panel hidden">
+              <ol id="externalLinksList" class="ordered-links-list"></ol>
+            </div>
+          </div>
+        </div>
+
+        <div class="analysis-section" data-section="image-attributes">
+          <button type="button" class="analysis-toggle" data-target="imageAttributesContent" aria-expanded="false">
+            <span>Images Missing Alt / Width / Height</span>
+            <span class="analysis-arrow" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+              </svg>
+            </span>
+          </button>
+          <div id="imageAttributesContent" class="analysis-content hidden">
+            <div id="imageAttributesSummary" class="broken-links-summary">-</div>
+            <ul id="imageAttributesList" class="broken-links-list"></ul>
+          </div>
+        </div>
         </div>
       </div>
     </div>
@@ -221,7 +291,16 @@
       </div>
     </div>
 
-    <p class="dev-cred">Developed by : <a href="https://anupammondal.in/chrome-extension/seo-checklist" target="_blank">Anupam Mondal</a></p>
+    <a class="extension-cta" href="https://chrome.google.com/webstore/detail/website-framework-detector/ebkogcpaeaofidbegiadlfcfhlnaccnn" target="_blank" rel="noopener noreferrer">
+      <div class="extension-cta-header">
+        <img class="extension-cta-logo" src="https://lh3.googleusercontent.com/Tf3fHFbHKrWARSUSZsj0kTFkoxRN0wevwcu2uX1Uq5y4W4Hs5mNsl__1yZkgc4Q2f2LSdMMYbuZ04GOYfPZE9qp7=s120" alt="Website Framework Detector logo">
+        <div>
+          <div class="extension-cta-title">Try My Other Extension: Website Framework Detector</div>
+          <div class="extension-cta-subtitle">Website Framework Detector helps you instantly identify the tech stack of any website.</div>
+        </div>
+      </div>
+    </a>
+    <p class="dev-cred">Developed by : Anupam Mondal</p>
   </div>
 
   <script src="popup.js"></script>
