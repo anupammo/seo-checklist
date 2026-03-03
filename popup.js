@@ -78,6 +78,7 @@ document.addEventListener('DOMContentLoaded', function() {
           displayResults(data);
           resultsContainer.classList.remove('hidden');
           checkBrokenLinks(data.links.internalUrls, data.links.externalCount);
+          checkImageOptimization(data.images.auditItems);
         } catch (e) {
           alert('Error analyzing HTML: ' + e.message);
         } finally {
@@ -139,6 +140,60 @@ function displaySocialPreview(data) {
   }
 }
 
+function getHeadingOrderIssues(headings) {
+  const issues = [];
+  let previousLevel = null;
+
+  headings.forEach((heading) => {
+    const level = Number(heading.tag.replace('h', ''));
+    if (!Number.isInteger(level)) {
+      return;
+    }
+
+    if (previousLevel !== null && level > previousLevel + 1) {
+      issues.push({
+        from: `H${previousLevel}`,
+        to: `H${level}`,
+        text: heading.text,
+        index: heading.index
+      });
+    }
+
+    previousLevel = level;
+  });
+
+  return issues;
+}
+
+function hasDiscernibleLinkName(anchor) {
+  const text = anchor.textContent ? anchor.textContent.trim() : '';
+  if (text) return true;
+
+  const ariaLabel = anchor.getAttribute('aria-label')?.trim() || '';
+  if (ariaLabel) return true;
+
+  const title = anchor.getAttribute('title')?.trim() || '';
+  if (title) return true;
+
+  const imageAlt = Array.from(anchor.querySelectorAll('img')).some(img => (img.getAttribute('alt') || '').trim());
+  return imageAlt;
+}
+
+function parsePositiveInt(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function normalizeUrl(url, pageUrl) {
+  if (!url) return null;
+  try {
+    return new URL(url, pageUrl).toString();
+  } catch (error) {
+    return null;
+  }
+}
+
 function getPageSEOData(doc, pageUrl) {
   function countWords(text) {
     return text ? text.trim().split(/\s+/).length : 0;
@@ -148,12 +203,48 @@ function getPageSEOData(doc, pageUrl) {
   const metaDesc = doc.querySelector('meta[name="description"]')?.content || '';
   const h1 = doc.querySelectorAll('h1');
   const h2 = doc.querySelectorAll('h2');
+  const headingSequence = Array.from(doc.querySelectorAll('h1,h2,h3,h4,h5,h6')).map((heading, index) => ({
+    tag: heading.tagName.toLowerCase(),
+    text: (heading.textContent || '').trim().slice(0, 120),
+    index
+  }));
+  const headingOrderIssues = getHeadingOrderIssues(headingSequence);
+
   const mainContent = doc.querySelector('main, article, .main-content, .post-content') || doc.body;
   const wordCount = countWords(mainContent.textContent);
   const images = doc.querySelectorAll('img');
   const imagesWithAlt = Array.from(images).filter(img => img.alt && img.alt.trim()).length;
+
+  const imageAuditItems = Array.from(images)
+    .map((img, index) => {
+      const src = img.getAttribute('src') || '';
+      const normalizedSrc = normalizeUrl(src, pageUrl);
+      const widthAttr = parsePositiveInt(img.getAttribute('width'));
+      const heightAttr = parsePositiveInt(img.getAttribute('height'));
+
+      return {
+        index,
+        src: normalizedSrc,
+        rawSrc: src,
+        width: widthAttr,
+        height: heightAttr,
+        hasExplicitDimensions: !!(widthAttr && heightAttr)
+      };
+    })
+    .filter(item => item.src);
+
+  const missingDimensionItems = imageAuditItems.filter(item => !item.hasExplicitDimensions);
+
+  const linkElements = Array.from(doc.querySelectorAll('a[href]'));
+  const unnamedLinks = linkElements
+    .filter(anchor => !hasDiscernibleLinkName(anchor))
+    .map(anchor => ({
+      href: normalizeUrl(anchor.getAttribute('href'), pageUrl) || anchor.getAttribute('href') || '',
+      text: (anchor.textContent || '').trim().slice(0, 80)
+    }));
+
   const baseOrigin = pageUrl ? new URL(pageUrl).origin : null;
-  const resolvedLinks = Array.from(doc.querySelectorAll('a[href]'))
+  const resolvedLinks = linkElements
     .map(a => a.getAttribute('href'))
     .filter(href => href && !href.startsWith('mailto:') && !href.startsWith('tel:') && !href.startsWith('javascript:'))
     .map(href => {
@@ -180,9 +271,25 @@ function getPageSEOData(doc, pageUrl) {
     title: { text: title, length: title.length },
     metaDescription: { text: metaDesc, length: metaDesc.length },
     headings: { h1: h1.length, h2: h2.length },
+    headingOrder: {
+      issuesCount: headingOrderIssues.length,
+      issues: headingOrderIssues
+    },
     content: { wordCount },
-    images: { total: images.length, withAlt: imagesWithAlt },
-    links: { internal: internalUrls.length, internalUrls, externalCount },
+    images: {
+      total: images.length,
+      withAlt: imagesWithAlt,
+      missingDimensions: missingDimensionItems.length,
+      missingDimensionItems,
+      auditItems: imageAuditItems
+    },
+    links: {
+      internal: internalUrls.length,
+      internalUrls,
+      externalCount,
+      unnamedCount: unnamedLinks.length,
+      unnamedLinks
+    },
     viewport: !!viewport,
     canonical: !!canonical,
     schema: !!schema,
@@ -215,6 +322,13 @@ function displayResults(data) {
       tooltip: `H1: ${data.headings.h1}, H2: ${data.headings.h2}`
     },
     {
+      id: 'headingOrderStatus',
+      good: data.headingOrder.issuesCount === 0,
+      warning: data.headingOrder.issuesCount > 0 && data.headingOrder.issuesCount <= 2,
+      text: data.headingOrder.issuesCount === 0 ? 'Pass' : `${data.headingOrder.issuesCount} issue(s)`,
+      tooltip: data.headingOrder.issuesCount === 0 ? 'No heading level skips detected' : 'Heading levels are being skipped in parts of the page'
+    },
+    {
       id: 'wordCountStatus',
       good: data.content.wordCount >= 500,
       warning: data.content.wordCount > 0 && data.content.wordCount < 500,
@@ -243,6 +357,13 @@ function displayResults(data) {
       tooltip: ''
     },
     {
+      id: 'linkNamesStatus',
+      good: data.links.unnamedCount === 0,
+      warning: data.links.unnamedCount > 0 && data.links.unnamedCount <= 2,
+      text: data.links.unnamedCount === 0 ? 'Pass' : `${data.links.unnamedCount} issue(s)`,
+      tooltip: data.links.unnamedCount === 0 ? 'All links have discernible names' : 'Some links have no visible text or accessible label'
+    },
+    {
       id: 'viewportStatus',
       good: data.viewport,
       warning: false,
@@ -269,6 +390,20 @@ function displayResults(data) {
       warning: false,
       text: data.gaTag ? 'Found' : 'Missing',
       tooltip: data.gaTag ? 'Google Analytics tag found' : 'No Google Analytics tag detected'
+    },
+    {
+      id: 'imageDimensionsStatus',
+      good: data.images.total === 0 || data.images.missingDimensions === 0,
+      warning: data.images.total > 0 && data.images.missingDimensions > 0 && (data.images.missingDimensions / data.images.total) <= 0.4,
+      text: data.images.total === 0 ? 'No images' : `${data.images.total - data.images.missingDimensions}/${data.images.total}`,
+      tooltip: data.images.missingDimensions === 0 ? 'All images have explicit width and height' : `${data.images.missingDimensions} image(s) missing width/height`
+    },
+    {
+      id: 'imageOptimizationStatus',
+      good: data.images.auditItems.length === 0,
+      warning: data.images.auditItems.length > 0,
+      text: data.images.auditItems.length === 0 ? 'No images' : 'Scanning...',
+      tooltip: data.images.auditItems.length === 0 ? 'No images to optimize' : 'Analyzing image sizes and optimization scope'
     }
   ];
 
@@ -317,6 +452,7 @@ function displayResults(data) {
 
   setBrokenLinksStatus('Checking...', 'warning', 'Checking links for errors');
   resetBrokenLinksUI(data.links.internalUrls.length, data.links.externalCount);
+  resetImageOptimizationUI(data.images.auditItems.length);
 
   // Detailed results
   const detailedResults = document.getElementById('detailedResults');
@@ -325,6 +461,9 @@ function displayResults(data) {
     <div class="detailed-item"><strong>Meta Description:</strong> ${escapeHtml(data.metaDescription.text) || '<span class="tag">Not found</span>'}</div>
     <div class="detailed-item"><strong>Content Words:</strong> ${data.content.wordCount}</div>
     <div class="detailed-item"><strong>Images with Alt:</strong> ${data.images.withAlt} / ${data.images.total}</div>
+    <div class="detailed-item"><strong>Heading Order Issues:</strong> ${data.headingOrder.issuesCount}</div>
+    <div class="detailed-item"><strong>Links Without Discernible Name:</strong> ${data.links.unnamedCount}</div>
+    <div class="detailed-item"><strong>Images Missing Width/Height:</strong> ${data.images.missingDimensions}</div>
     <div class="detailed-item"><strong>Internal Links:</strong> ${data.links.internal}</div>
     <div class="detailed-item"><strong>External Links:</strong> ${data.links.externalCount}</div>
     <div class="detailed-item"><strong>Viewport:</strong> ${data.viewport ? '<span class="tag">Yes</span>' : '<span class="tag">No</span>'}</div>
@@ -336,6 +475,8 @@ function displayResults(data) {
 
 const LINK_CHECK_LIMIT = 50;
 const LINK_CHECK_CONCURRENCY = 6;
+const IMAGE_CHECK_LIMIT = 30;
+const IMAGE_CHECK_CONCURRENCY = 4;
 
 function resetBrokenLinksUI(totalLinks, externalCount) {
   const summary = document.getElementById('brokenLinksSummary');
@@ -360,6 +501,231 @@ function setBrokenLinksStatus(text, statusClass, tooltip) {
   if (tooltip) {
     el.setAttribute('data-tooltip', tooltip);
   }
+}
+
+function setImageOptimizationStatus(text, statusClass, tooltip) {
+  const el = document.getElementById('imageOptimizationStatus');
+  if (!el) return;
+  el.textContent = text;
+  el.className = `status ${statusClass}`;
+  if (tooltip) {
+    el.setAttribute('data-tooltip', tooltip);
+  }
+}
+
+function resetImageOptimizationUI(totalImages) {
+  const summary = document.getElementById('imageOptimizationSummary');
+  const list = document.getElementById('imageOptimizationList');
+
+  if (summary) {
+    summary.textContent = totalImages > 0
+      ? `Analyzing ${totalImages} image(s) for size and optimization opportunities...`
+      : 'No images found on page.';
+  }
+
+  if (list) {
+    list.innerHTML = '';
+  }
+
+  if (totalImages === 0) {
+    setImageOptimizationStatus('No images', 'good', 'No images to optimize');
+  } else {
+    setImageOptimizationStatus('Scanning...', 'warning', 'Checking image file sizes and optimization scope');
+  }
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return 'Unknown';
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${Math.round(kb)} KB`;
+  return `${(kb / 1024).toFixed(2)} MB`;
+}
+
+function parseContentLength(value) {
+  if (!value) return null;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function getImageExtension(url) {
+  try {
+    const pathname = new URL(url).pathname.toLowerCase();
+    const lastDot = pathname.lastIndexOf('.');
+    if (lastDot === -1) return '';
+    return pathname.slice(lastDot + 1);
+  } catch (error) {
+    return '';
+  }
+}
+
+function classifyImageOpportunity(sizeBytes, extension, missingDimensions) {
+  let scope = 'Low';
+  let recommendation = 'Keep current image settings.';
+
+  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) {
+    scope = missingDimensions ? 'Medium' : 'Unknown';
+    recommendation = missingDimensions
+      ? 'Add explicit width and height attributes and review compression manually.'
+      : 'Unable to determine image size from headers; review manually.';
+    return { scope, recommendation };
+  }
+
+  const sizeKb = sizeBytes / 1024;
+  const modernFormatCandidate = ['jpg', 'jpeg', 'png'].includes(extension);
+
+  if (sizeKb >= 500) {
+    scope = 'High';
+    recommendation = 'Large image detected. Compress aggressively, resize to rendered dimensions, and use WebP/AVIF.';
+  } else if (sizeKb >= 200) {
+    scope = 'Medium';
+    recommendation = modernFormatCandidate
+      ? 'Compress and convert to WebP/AVIF where possible.'
+      : 'Compress and resize to appropriate display dimensions.';
+  } else if (sizeKb >= 100 || missingDimensions) {
+    scope = 'Low';
+    recommendation = missingDimensions
+      ? 'Add explicit width/height to reduce layout shift and review compression.'
+      : 'Consider light compression or responsive sizing.';
+  }
+
+  return { scope, recommendation };
+}
+
+async function checkImageOptimization(imageItems) {
+  const uniqueMap = new Map();
+  imageItems.forEach(item => {
+    if (!uniqueMap.has(item.src)) {
+      uniqueMap.set(item.src, item);
+    }
+  });
+
+  const uniqueImages = Array.from(uniqueMap.values()).filter(item => isHttpUrl(item.src));
+  if (uniqueImages.length === 0) {
+    setImageOptimizationStatus('No images', 'good', 'No HTTP(S) images to optimize');
+    return;
+  }
+
+  const limitedImages = uniqueImages.slice(0, IMAGE_CHECK_LIMIT);
+  const skippedCount = Math.max(0, uniqueImages.length - limitedImages.length);
+  const results = await runImageOptimizationChecks(limitedImages, IMAGE_CHECK_CONCURRENCY);
+
+  renderImageOptimizationResults(results, {
+    checked: limitedImages.length,
+    skipped: skippedCount,
+    total: uniqueImages.length
+  });
+}
+
+async function runImageOptimizationChecks(images, concurrency) {
+  const results = [];
+  let currentIndex = 0;
+
+  const workers = new Array(Math.min(concurrency, images.length)).fill(null).map(async () => {
+    while (currentIndex < images.length) {
+      const image = images[currentIndex];
+      currentIndex += 1;
+      const result = await checkSingleImageOptimization(image);
+      results.push(result);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
+
+async function checkSingleImageOptimization(image) {
+  const extension = getImageExtension(image.src);
+
+  try {
+    let response = await fetch(image.src, {
+      method: 'HEAD',
+      cache: 'no-store',
+      redirect: 'follow'
+    });
+
+    if (response.status === 405 || response.status === 501) {
+      response = await fetch(image.src, {
+        method: 'GET',
+        cache: 'no-store',
+        redirect: 'follow'
+      });
+    }
+
+    const sizeBytes = parseContentLength(response.headers.get('content-length'));
+    const classification = classifyImageOpportunity(sizeBytes, extension, !image.hasExplicitDimensions);
+
+    return {
+      url: image.src,
+      sizeBytes,
+      sizeLabel: formatBytes(sizeBytes),
+      scope: classification.scope,
+      recommendation: classification.recommendation,
+      missingDimensions: !image.hasExplicitDimensions
+    };
+  } catch (error) {
+    const classification = classifyImageOpportunity(null, extension, !image.hasExplicitDimensions);
+    return {
+      url: image.src,
+      sizeBytes: null,
+      sizeLabel: 'Unknown',
+      scope: classification.scope,
+      recommendation: classification.recommendation,
+      missingDimensions: !image.hasExplicitDimensions,
+      error: error.message
+    };
+  }
+}
+
+function renderImageOptimizationResults(results, meta) {
+  const summary = document.getElementById('imageOptimizationSummary');
+  const list = document.getElementById('imageOptimizationList');
+  if (!summary || !list) return;
+
+  list.innerHTML = '';
+
+  const sorted = results.slice().sort((a, b) => {
+    const sizeA = Number.isFinite(a.sizeBytes) ? a.sizeBytes : -1;
+    const sizeB = Number.isFinite(b.sizeBytes) ? b.sizeBytes : -1;
+    return sizeB - sizeA;
+  });
+
+  const high = sorted.filter(item => item.scope === 'High').length;
+  const medium = sorted.filter(item => item.scope === 'Medium').length;
+  const unknown = sorted.filter(item => item.scope === 'Unknown').length;
+  const missingDimensions = sorted.filter(item => item.missingDimensions).length;
+  const skippedText = meta.skipped ? ` ${meta.skipped} skipped.` : '';
+
+  summary.textContent = `Checked ${meta.checked} image(s). High: ${high}, Medium: ${medium}, Missing width/height: ${missingDimensions}, Unknown size: ${unknown}.${skippedText}`;
+
+  if (high > 0) {
+    setImageOptimizationStatus(`${high} high`, 'bad', 'High-impact image optimization opportunities found');
+  } else if (medium > 0 || missingDimensions > 0 || unknown > 0) {
+    setImageOptimizationStatus('Needs review', 'warning', 'Some images can be optimized further');
+  } else {
+    setImageOptimizationStatus('Good', 'good', 'No significant image optimization issues detected');
+  }
+
+  sorted.forEach(item => {
+    const li = document.createElement('li');
+
+    const link = document.createElement('a');
+    link.href = item.url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = item.url;
+    li.appendChild(link);
+
+    const metaSpan = document.createElement('div');
+    const dimensionsNote = item.missingDimensions ? ' | Missing width/height' : '';
+    metaSpan.textContent = `Size: ${item.sizeLabel} | Scope: ${item.scope}${dimensionsNote}`;
+    li.appendChild(metaSpan);
+
+    const recommendation = document.createElement('div');
+    recommendation.textContent = item.recommendation;
+    li.appendChild(recommendation);
+
+    list.appendChild(li);
+  });
 }
 
 function isHttpUrl(url) {

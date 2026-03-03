@@ -87,6 +87,10 @@
             <label>Heading Structure</label>
             <span id="headingsStatus" class="status">-</span>
           </div>
+          <div class="checklist-item tooltip" data-tooltip="Avoid skipping heading levels (e.g., H2 to H4)">
+            <label>Heading Order</label>
+            <span id="headingOrderStatus" class="status">-</span>
+          </div>
         </div>
       </div>
 
@@ -117,6 +121,10 @@
           <div class="checklist-item tooltip" data-tooltip="External links add credibility when relevant">
             <label>External Links</label>
             <span id="externalLinksStatus" class="status">-</span>
+          </div>
+          <div class="checklist-item tooltip" data-tooltip="Links should have visible text or accessible labels">
+            <label>Discernible Link Names</label>
+            <span id="linkNamesStatus" class="status">-</span>
           </div>
         </div>
       </div>
@@ -149,6 +157,14 @@
             <label>Google Analytics Tag</label>
             <span id="gaTagStatus" class="status">-</span>
           </div>
+          <div class="checklist-item tooltip" data-tooltip="Images should include explicit width and height attributes">
+            <label>Image Dimensions</label>
+            <span id="imageDimensionsStatus" class="status">-</span>
+          </div>
+          <div class="checklist-item tooltip" data-tooltip="Estimates image weight and optimization opportunity">
+            <label>Image Optimization</label>
+            <span id="imageOptimizationStatus" class="status">-</span>
+          </div>
           <div class="checklist-item tooltip" data-tooltip="Checks broken internal links only">
             <label>Broken Internal Links</label>
             <span id="brokenLinksStatus" class="status">-</span>
@@ -163,6 +179,11 @@
           <h4>Broken Internal Links</h4>
           <div id="brokenLinksSummary" class="broken-links-summary">-</div>
           <ul id="brokenLinksList" class="broken-links-list"></ul>
+        </div>
+        <div class="link-health">
+          <h4>Image Optimization Opportunities</h4>
+          <div id="imageOptimizationSummary" class="broken-links-summary">-</div>
+          <ul id="imageOptimizationList" class="broken-links-list"></ul>
         </div>
       </div>
     </div>
