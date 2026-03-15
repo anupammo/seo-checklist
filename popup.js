@@ -14,6 +14,15 @@ const reportState = {
   }
 };
 
+let socialPreviewEl = null;
+
+function isInjectablePageUrl(url) {
+  if (!url || typeof url !== 'string') {
+    return false;
+  }
+  return url.startsWith('http://') || url.startsWith('https://');
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   const analyzeBtn = document.getElementById('analyzeBtn');
   const exportPdfBtn = document.getElementById('exportPdfBtn');
@@ -23,7 +32,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const seoScore = document.getElementById('seoScore');
   const scoreCard = document.querySelector('.score-card');
   const scoreFeedback = document.getElementById('scoreFeedback');
-  const socialPreview = document.getElementById('socialPreview');
+  socialPreviewEl = document.getElementById('socialPreview');
 
   // Test Tools Button Handlers
   const structuredDataBtn = document.getElementById('structuredDataBtn');
@@ -76,6 +85,11 @@ document.addEventListener('DOMContentLoaded', function() {
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
       const tab = tabs[0];
       reportState.pageUrl = tab.url || '';
+      if (!isInjectablePageUrl(reportState.pageUrl)) {
+        alert('This page cannot be analyzed. Open a regular website (http or https) and try again.');
+        loading.classList.add('hidden');
+        return;
+      }
       if (!chrome.scripting) {
         alert('chrome.scripting API not available. Make sure you are using Manifest V3 and have the correct permissions.');
         loading.classList.add('hidden');
@@ -115,6 +129,11 @@ document.addEventListener('DOMContentLoaded', function() {
   // Load social preview on popup open
   chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
     const tab = tabs[0];
+    if (!tab || !isInjectablePageUrl(tab.url || '')) {
+      displaySocialPreview(null);
+      return;
+    }
+
     chrome.scripting.executeScript({
       target: {tabId: tab.id},
       func: () => {
@@ -125,6 +144,11 @@ document.addEventListener('DOMContentLoaded', function() {
         return { title, description, image, url };
       }
     }, (results) => {
+      if (chrome.runtime.lastError) {
+        displaySocialPreview(null);
+        return;
+      }
+
       if (results && results[0] && results[0].result) {
         const data = results[0].result;
         displaySocialPreview(data);
@@ -185,8 +209,12 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function displaySocialPreview(data) {
+  if (!socialPreviewEl) {
+    return;
+  }
+
   if (data && (data.title || data.description || data.image)) {
-    socialPreview.innerHTML = `
+    socialPreviewEl.innerHTML = `
       <div class="social-preview-card">
         ${data.image ? `<img src="${data.image}" alt="Social Preview Image" onerror="this.parentElement.innerHTML='<div class=\\'image-error\\'>Image not available</div>'">` : '<div class="image-error">No image</div>'}
         <div class="social-preview-content">
@@ -197,7 +225,7 @@ function displaySocialPreview(data) {
       </div>
     `;
   } else {
-    socialPreview.innerHTML = `
+    socialPreviewEl.innerHTML = `
       <div class="social-preview-placeholder">
         No Social Preview Available
       </div>

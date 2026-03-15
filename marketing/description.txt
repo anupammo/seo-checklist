@@ -1,4 +1,4 @@
-SEO Checklist - The Ultimate 2025 On-Page Analyzer + SEO Testing Tools
+SEO Checklist - The Ultimate 2026 On-Page Analyzer + SEO Testing Tools
 
 ★ Featured in "Top SEO Tools" by Search Engine Land ★
 
@@ -18,7 +18,8 @@ Why choose us:
 🔍 No data collection - 100% private
 🚀 One-click analysis
 💡 Actionable recommendations
-🎯 Updated for 2025 ranking factors
+🛡️ v1.4 stability update: skips restricted tabs (like chrome://) to avoid runtime errors
+🎯 Updated for 2026 ranking factors
 🔗 Built-in links to external SEO testing tools
 
 Perfect for:
