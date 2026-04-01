@@ -10,11 +10,4 @@ chrome.runtime.onInstalled.addListener((details) => {
   chrome.tabs.create({
     url: `${UPDATE_PAGE_URL}?updated=true&version=${encodeURIComponent(currentVersion)}`
   });
-
-  chrome.notifications.create('seo-checklist-update', {
-    type: 'basic',
-    iconUrl: 'icons/icon128.png',
-    title: 'SEO Checklist updated',
-    message: `Version ${currentVersion} is now live. Check what\'s new.`
-  });
 });

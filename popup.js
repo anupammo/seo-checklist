@@ -14,6 +14,8 @@ const reportState = {
   }
 };
 
+const REMOTE_AUDITS_ENABLED = false;
+
 let socialPreviewEl = null;
 
 function isInjectablePageUrl(url) {
@@ -111,8 +113,6 @@ document.addEventListener('DOMContentLoaded', function() {
           const data = getPageSEOData(doc, tab.url);
           displayResults(data);
           resultsContainer.classList.remove('hidden');
-          checkBrokenLinks(data.links.internalUrls, data.links.externalCount);
-          checkImageOptimization(data.images.auditItems);
         } catch (e) {
           alert('Error analyzing HTML: ' + e.message);
         } finally {
@@ -533,10 +533,14 @@ function getChecks(data) {
     {
       id: 'imageOptimizationStatus',
       label: 'Image Optimization',
-      good: data.images.auditItems.length === 0,
-      warning: data.images.auditItems.length > 0,
-      text: data.images.auditItems.length === 0 ? 'No images' : 'Scanning...',
-      tooltip: data.images.auditItems.length === 0 ? 'No images to optimize' : 'Analyzing image sizes and optimization scope'
+      good: !REMOTE_AUDITS_ENABLED || data.images.auditItems.length === 0,
+      warning: REMOTE_AUDITS_ENABLED && data.images.auditItems.length > 0,
+      text: REMOTE_AUDITS_ENABLED
+        ? (data.images.auditItems.length === 0 ? 'No images' : 'Scanning...')
+        : 'Disabled',
+      tooltip: REMOTE_AUDITS_ENABLED
+        ? (data.images.auditItems.length === 0 ? 'No images to optimize' : 'Analyzing image sizes and optimization scope')
+        : 'Disabled in v1.2.9 after host permission removal'
     }
   ];
 }
@@ -594,9 +598,15 @@ function displayResults(data) {
   reportState.feedback = feedback;
   setExportButtonState(true);
 
-  setBrokenLinksStatus('Checking...', 'warning', 'Checking links for errors');
-  resetBrokenLinksUI(data.links.internalUrls.length, data.links.externalCount);
-  resetImageOptimizationUI(data.images.auditItems.length);
+  if (REMOTE_AUDITS_ENABLED) {
+    setBrokenLinksStatus('Checking...', 'warning', 'Checking links for errors');
+    resetBrokenLinksUI(data.links.internalUrls.length, data.links.externalCount);
+    resetImageOptimizationUI(data.images.auditItems.length);
+    checkBrokenLinks(data.links.internalUrls, data.links.externalCount);
+    checkImageOptimization(data.images.auditItems);
+  } else {
+    disableRemoteAuditSections(data);
+  }
   renderLinksOverview(data.links.internalUrls, data.links.externalUrls);
   renderImageAttributeIssues(data.images.attributeIssueItems);
 
@@ -1654,4 +1664,49 @@ function renderImageAttributeIssues(items) {
 
     list.appendChild(li);
   });
+}
+
+function disableRemoteAuditSections(data) {
+  const disableMessage = 'Disabled in v1.2.9 due to host permission removal.';
+
+  setBrokenLinksStatus('Disabled', 'warning', disableMessage);
+  const brokenSummary = document.getElementById('brokenLinksSummary');
+  const brokenList = document.getElementById('brokenLinksList');
+  if (brokenSummary) {
+    brokenSummary.textContent = disableMessage;
+  }
+  if (brokenList) {
+    brokenList.innerHTML = '';
+  }
+
+  setImageOptimizationStatus('Disabled', 'warning', disableMessage);
+  const imageSummary = document.getElementById('imageOptimizationSummary');
+  const imageList = document.getElementById('imageOptimizationList');
+  if (imageSummary) {
+    imageSummary.textContent = disableMessage;
+  }
+  if (imageList) {
+    imageList.innerHTML = '';
+  }
+
+  reportState.brokenLinks = {
+    items: [],
+    meta: {
+      checked: 0,
+      skipped: data.links.internalUrls.length,
+      total: data.links.internalUrls.length,
+      external: data.links.externalCount,
+      disabled: true
+    }
+  };
+
+  reportState.imageOptimization = {
+    items: [],
+    meta: {
+      checked: 0,
+      skipped: data.images.auditItems.length,
+      total: data.images.auditItems.length,
+      disabled: true
+    }
+  };
 }

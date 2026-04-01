@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SEO Checklist",
-  "version": "1.4",
+  "version": "1.2.9",
   "description": "Real-time on-page SEO analysis with social preview insights and quick access to SEO testing tools",
   "action": {
     "default_popup": "popup.html",
@@ -18,14 +18,9 @@
   },
   "permissions": [
     "scripting",
-    "activeTab",
-    "notifications"
+    "activeTab"
   ],
   "background": {
     "service_worker": "background.js"
-  },
-  "host_permissions": [
-    "http://*/*",
-    "https://*/*"
-  ]
+  }
 }

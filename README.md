@@ -1,5 +1,5 @@
 
-# SEO Checklist v1.4 – On-Page SEO Analyzer Chrome Extension
+# SEO Checklist v1.2.9 – On-Page SEO Analyzer Chrome Extension
 
 SEO Checklist is a modern, privacy-friendly Chrome extension that provides instant, client-side on-page SEO analysis for any website you visit. It gives you a clear, actionable checklist and visual feedback to help you optimize your pages for search engines—no server, no data collection, no permissions beyond what’s needed.
 
@@ -11,15 +11,17 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
 
 ---
 
-## What’s New in v1.4 (March 2026)
+## What’s New in v1.2.9 (March 2026)
 
-- **More Exact SEO Score (Web-Vitals-Inspired Signals)**: Scoring is now more granular with additional technical quality signals such as heading order, discernible link names, image dimension checks, and image optimization scope.
+- **Permission Reduction Update**: Removed `notifications` and broad `host_permissions` access to reduce extension permission footprint.
+- **Network-Based Audits Disabled**: Broken internal link status checks and image file-size optimization checks are disabled in this version due to host permission removal.
+- **More Exact SEO Score (Web-Vitals-Inspired Signals)**: Scoring remains granular with additional technical quality signals such as heading order, discernible link names, and image dimension checks.
 - **Heading Order Validation**: Detects skipped heading levels (for example H2 to H4) to catch structural issues.
 - **Internal / External Link Insights**: Added dedicated internal and external link breakdown with detailed lists in the analysis panel.
 - **Printable SEO Report / PDF Export**: Export analysis to a printable report and save as PDF.
 - **Discernible Link Names Check**: Flags links without visible text or accessible labels.
 - **GA Tag + Image Optimization Scope**: Improved technical scoring with analytics tag detection and image-size based optimization scope classification.
-- **Image Optimization Opportunities**: New section with size-based recommendations (including compression and format guidance).
+- **Image Optimization Panel Retained**: Section remains visible in UI, with network-based size checks disabled in this version.
 - **Restricted URL Guard**: Prevents analysis attempts on non-injectable pages like `chrome://`, extension pages, and other protected URLs.
 - **Safer Social Preview Loading**: Social preview now skips restricted tabs and falls back to a placeholder without runtime errors.
 - **Improved Popup Stability**: Added explicit Chrome API error handling for safer execution.
@@ -27,6 +29,13 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
 ---
 
 ## Changelog
+
+### v1.2.9 (March 2026)
+
+- Removed `notifications` permission and update-toast notification dependency.
+- Removed broad `host_permissions` (`http://*/*`, `https://*/*`).
+- Disabled network-dependent broken-link status checks.
+- Disabled network-dependent image optimization size checks.
 
 ### v1.4 (March 2026)
 
@@ -56,7 +65,7 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
 
 ## Features
 
-- **Minimal, Purpose-Built Permissions**: Uses `activeTab` + `scripting` for on-page analysis and `notifications` for update alerts. All analysis remains client-side.
+- **Minimal, Purpose-Built Permissions**: Uses `activeTab` + `scripting` for on-page analysis. All analysis remains client-side.
 - **One-Click Analysis**: Instantly analyze the current tab’s HTML with a single click.
 - **Visual SEO Score**: Get a color-coded SEO score and feedback summary using expanded technical checks (web-vitals-inspired scoring signals).
 - **Detailed Checklist**: Checks for:
@@ -81,10 +90,10 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
 - **Google Analytics Detection**: Detects if Google Analytics or Google Tag Manager is installed on your page
 - **Social Preview Card**: Preview social metadata (title, description, image, URL) directly in the extension popup.
 - **Internal / External Link Overview**: Review separated internal and external link lists directly in the popup.
-- **Broken Link Check Status**: Checks internal links and reports broken-link status for faster technical cleanup.
+- **Broken Link Check Status**: Temporarily disabled in v1.2.9 after host permission removal.
 - **Discernible Link Names Audit**: Detects links with missing visible text or accessible naming.
 - **Image Attribute Issues Panel**: Lists images missing alt text and/or width/height attributes.
-- **Image Optimization Opportunities**: Provides image-size based scope and optimization recommendations.
+- **Image Optimization Opportunities**: Temporarily disabled in v1.2.9 after host permission removal.
 - **Printable Report Export**: Open a dedicated report view and print or save as PDF.
 - **Test Recent URL Tools**: Quick access to external SEO testing tools:
   - **Structured Data / Rich Results** – Test with Google's Rich Result Testing Tool
@@ -117,7 +126,7 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
      - Click **PageSpeed Insights** to check performance metrics and optimization suggestions
      - Click **Facebook Debugger** to preview page sharing appearance on Facebook
      - Click **LinkedIn Inspector** to preview page sharing appearance on LinkedIn
-4. Review detailed technical panels including heading order, link quality, broken internal links, and image optimization opportunities.
+4. Review detailed technical panels including heading order and link quality. Broken-link status and image-optimization size checks are marked disabled in this version.
 5. Click **Export PDF Report** to open the printable report view, then print or save as PDF.
 
 ## Screenshots
@@ -175,12 +184,7 @@ Do **not** include `marketing/` or `screenshots/` folders in the upload ZIP. Upl
 ```json
 "permissions": [
   "scripting",
-  "activeTab",
-  "notifications"
-],
-"host_permissions": [
-  "http://*/*",
-  "https://*/*"
+  "activeTab"
 ]
 ```
 
