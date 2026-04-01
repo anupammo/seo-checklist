@@ -15,12 +15,13 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
 
 - **Permission Reduction Update**: Removed `notifications` and broad `host_permissions` access to reduce extension permission footprint.
 - **Network-Based Audits Disabled**: Broken internal link status checks and image file-size optimization checks are disabled in this version due to host permission removal.
-- **More Exact SEO Score (Web-Vitals-Inspired Signals)**: Scoring remains granular with additional technical quality signals such as heading order, discernible link names, and image dimension checks.
+- **PDF Report Aligned with Active Features**: Exported report now excludes disabled sections and focuses on active audits only.
+- **More Exact SEO Score (Web-Vitals-Inspired Signals)**: Scoring remains granular with technical quality signals such as heading order, discernible link names, and image dimension checks.
 - **Heading Order Validation**: Detects skipped heading levels (for example H2 to H4) to catch structural issues.
 - **Internal / External Link Insights**: Added dedicated internal and external link breakdown with detailed lists in the analysis panel.
 - **Printable SEO Report / PDF Export**: Export analysis to a printable report and save as PDF.
 - **Discernible Link Names Check**: Flags links without visible text or accessible labels.
-- **GA Tag + Image Optimization Scope**: Improved technical scoring with analytics tag detection and image-size based optimization scope classification.
+- **GA Tag Detection**: Improved technical scoring with analytics tag detection.
 - **Image Optimization Panel Retained**: Section remains visible in UI, with network-based size checks disabled in this version.
 - **Restricted URL Guard**: Prevents analysis attempts on non-injectable pages like `chrome://`, extension pages, and other protected URLs.
 - **Safer Social Preview Loading**: Social preview now skips restricted tabs and falls back to a placeholder without runtime errors.
@@ -95,6 +96,7 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
 - **Image Attribute Issues Panel**: Lists images missing alt text and/or width/height attributes.
 - **Image Optimization Opportunities**: Temporarily disabled in v1.2.9 after host permission removal.
 - **Printable Report Export**: Open a dedicated report view and print or save as PDF.
+- **PDF Scope in v1.2.9**: Export includes active audits (score, checklist, links overview, image attribute issues, metadata) and excludes disabled network-dependent sections.
 - **Test Recent URL Tools**: Quick access to external SEO testing tools:
   - **Structured Data / Rich Results** – Test with Google's Rich Result Testing Tool
   - **Google PageSpeed Insights** – Analyze page performance and loading speed
@@ -128,6 +130,45 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
      - Click **LinkedIn Inspector** to preview page sharing appearance on LinkedIn
 4. Review detailed technical panels including heading order and link quality. Broken-link status and image-optimization size checks are marked disabled in this version.
 5. Click **Export PDF Report** to open the printable report view, then print or save as PDF.
+6. In v1.2.9, exported PDF intentionally hides disabled sections:
+  - Broken Internal Links
+  - Image Optimization Opportunities
+
+## Best Practices
+
+### SEO Review Workflow
+
+1. Start with the SEO score, then verify each failing checklist item manually.
+2. Prioritize high-impact fixes first:
+  - Title and meta description quality
+  - Heading hierarchy and skipped levels
+  - Missing image alt text and image dimensions
+3. Review internal and external link lists for crawl and UX clarity.
+4. Use social preview before publishing to validate share-card quality.
+5. Re-run analysis after each major content or template update.
+
+### Content Best Practices
+
+1. Keep one clear H1 and meaningful H2/H3 structure.
+2. Write unique, intent-aligned titles and meta descriptions.
+3. Ensure image alt text is descriptive and contextual.
+4. Add explicit `width` and `height` attributes on images to reduce layout shift.
+5. Ensure links are discernible (visible text or accessible labels).
+
+### Technical Best Practices
+
+1. Always include viewport, canonical, and valid schema where relevant.
+2. Validate that GA/Tag Manager implementation is present and correct.
+3. Use the external SEO testing shortcuts (Rich Results, PageSpeed, social debuggers) as a second validation layer.
+4. Treat extension output as a fast QA pass, not a replacement for full manual auditing.
+
+### Release & QA Best Practices (Extension)
+
+1. Keep permissions minimal and document every permission change in changelog and privacy notes.
+2. Validate popup behavior on multiple page types (`http`, `https`, restricted URLs).
+3. Verify Export PDF output after any checklist/report template changes.
+4. Keep Chrome Web Store listing, screenshots, and README version notes in sync before publishing.
+5. Smoke-test on a small set of representative websites before release.
 
 ## Screenshots
 

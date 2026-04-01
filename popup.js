@@ -1100,8 +1100,6 @@ function exportReportAsPdf() {
   const internalLinks = Array.from(new Set(reportState.seoData.links.internalUrls)).slice(0, 25);
   const externalLinks = Array.from(new Set(reportState.seoData.links.externalUrls)).slice(0, 25);
   const imageIssues = reportState.seoData.images.attributeIssueItems.slice(0, 25);
-  const brokenLinks = (reportState.brokenLinks.items || []).slice(0, 25);
-  const imageOpportunities = (reportState.imageOptimization.items || []).slice(0, 25);
 
   const printableHtml = `
 <!DOCTYPE html>
@@ -1451,17 +1449,6 @@ function exportReportAsPdf() {
     </section>
 
     <section class="section">
-      <h2>Broken Internal Links</h2>
-      <ol>
-        ${buildReportHtmlList(
-          brokenLinks,
-          'No broken internal links found.',
-          (item) => `<li>${escapeHtml(item.url)}${item.status && item.status !== 'opaque' ? ` (status: ${escapeHtml(String(item.status))})` : ''}</li>`
-        )}
-      </ol>
-    </section>
-
-    <section class="section">
       <h2>Image Attribute Issues</h2>
       <ol>
         ${buildReportHtmlList(
@@ -1473,17 +1460,6 @@ function exportReportAsPdf() {
             if (!item.hasExplicitDimensions) issueParts.push('Missing width/height');
             return `<li>${escapeHtml(item.src)} - ${escapeHtml(issueParts.join(', '))}</li>`;
           }
-        )}
-      </ol>
-    </section>
-
-    <section class="section">
-      <h2>Image Optimization Opportunities</h2>
-      <ol>
-        ${buildReportHtmlList(
-          imageOpportunities,
-          'No image optimization opportunities found.',
-          (item) => `<li>${escapeHtml(item.url)} - ${escapeHtml(item.sizeLabel)} | ${escapeHtml(item.scope)} | ${escapeHtml(item.recommendation)}</li>`
         )}
       </ol>
     </section>
