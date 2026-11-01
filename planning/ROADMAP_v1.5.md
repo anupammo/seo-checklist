@@ -10,11 +10,16 @@
 
 | Item | Status in v1.4 | Why it matters for growth |
 |---|---|---|
-| Users | < 250 | Need 2x growth |
+| Users | **222** (CWS listing, Nov 2026) | Need +278 net to reach 500 |
+| Rating | **4.3★ from only 6 ratings** | With so few ratings, one bad review drops the average a lot. More reviews is the cheapest way to raise both trust and ranking |
+| Publisher | Verified (anupammondal.in), category Developer Tools | Good trust signals already in place |
 | Install warning | `host_permissions: http://*/*, https://*/*` + `notifications` → Chrome shows **"Read and change all your data on all websites"** | Biggest install-conversion killer for a tool that claims to be privacy-first |
 | Update behavior | Opens a new tab **and** shows a system notification on every update | Users who didn't ask for it often uninstall right away |
 | v1.2.9 fixes | v1.2.9 removed notifications and host permissions, but **v1.4 never got those commits** | v1.4 undid the permission cleanup |
-| CWS "Featured" badge | Already on the listing | A strong trust signal. Use it in marketing and protect it |
+| CWS "Featured" badge | Already on the listing (confirmed) | A strong trust signal. Use it in marketing and protect it |
+| Listing text | Overview still says **"SEO Checklist v1.3"** | Looks out of date to visitors. Update it with every release |
+| Screenshot claim | One screenshot says **"No Permissions Needed"**, but v1.4 asks for access to all websites | The listing doesn't match the install warning. T1 fixes this; otherwise remove that screenshot |
+| Media | 1 video + 6 screenshots | Good start; refresh them for v1.5 features |
 | Store description | Says *"Featured in 'Top SEO Tools' by Search Engine Land"* | This is a different claim from the CWS badge. If there's no Search Engine Land article to link, replace it with "Featured on the Chrome Web Store" (true and checkable) |
 | Feature depth | Good basic on-page checks, social preview, PDF report, tool launcher | Missing several checks that every top competitor has (see §2) |
 
@@ -102,6 +107,7 @@ The goal needs about **+250 net users** (installs minus uninstalls). Most instal
 - **Title (≤ 45 chars, keyword first):** `SEO Checklist – On-Page SEO Checker & Audit`
 - **Short description (132 chars):** lead with the main keywords: *"Free on-page SEO checker: meta tags, headings, SERP preview, broken links, schema and PDF reports. No sign-up, no data collected."*
 - **Long description:** answer the questions people have before installing: What does it check? Is it free? What permissions does it need? Does it send data? Use real keywords people search for: *seo checker, meta tag checker, seo audit, on-page seo, heading checker, broken link checker, schema checker, serp preview*. No keyword lists, no fake badges.
+- **Update the overview text** (it still says v1.3) and drop or fix the "No Permissions Needed" screenshot until T1 ships.
 - **5 screenshots at 1280×800** with a caption on each: (1) score + checklist, (2) SERP preview, (3) indexability, (4) PDF report, (5) links/images panel. **Small promo tile at 440×280.**
 - **Localize** the listing (title + descriptions) into es, pt-BR, de, fr, hi, id, ja. The store has built-in localization, and it's a cheap way to show up in more searches.
 - **Use the "Featured" badge we already have:** the listing already shows Google's Chrome Web Store "Featured" badge. Mention it in the first screenshot, on the landing page and in launch posts ("Featured on the Chrome Web Store"). To keep it, stay within Google's best practices (minimal permissions, clear privacy disclosures, an accurate listing). T1 and T11 also protect the badge.
@@ -123,7 +129,7 @@ The goal needs about **+250 net users** (installs minus uninstalls). Most instal
 
 ### C. Reviews (ongoing)
 
-- Target **15+ new reviews** by week 8 (G1 does most of this).
+- Target **20+ ratings total (from 6)** by week 8, at 4.5★+ average (G1 does most of this). Ask the people who already use it (colleagues, clients, your network) for honest reviews in week 1. Never offer rewards for reviews; that breaks CWS rules.
 - Reply to **every** review within 48h. Fix and reply to every 1–3★ review.
 
 ### D. Retention (to keep the net growth)
@@ -136,7 +142,7 @@ The goal needs about **+250 net users** (installs minus uninstalls). Most instal
 
 | Week | Milestone | Target users |
 |---|---|---|
-| 0 | Branch `v1.5` from `v1.4`; finish P0 tweaks | ~250 |
+| 0 | Branch `v1.5` from `v1.4`; finish P0 tweaks | 222 |
 | 1 | Ship v1.5 + new listing, screenshots, localization | 270 |
 | 2 | Edge Add-ons live; Reddit/LinkedIn posts; landing page | 310 |
 | 3 | Product Hunt + Show HN; listicle outreach (10 emails) | 370 |
