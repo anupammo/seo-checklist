@@ -311,6 +311,17 @@ function initActions() {
     });
   });
 
+  $('clearHistoryBtn').addEventListener('click', async () => {
+    if (!window.confirm('Delete all saved scores from this device?')) return;
+    if (chrome.storage && chrome.storage.local) {
+      await new Promise(resolve => chrome.storage.local.remove('scoreHistory', resolve));
+    }
+    $('scoreDelta').textContent = 'Score history cleared.';
+    $('historyCaption').textContent = 'Your score history starts now';
+    $('historySpark').innerHTML = '';
+    showToast('History cleared');
+  });
+
   $('reviewRateBtn').addEventListener('click', () => {
     chrome.tabs.create({ url: STORE_REVIEW_URL });
     setReviewPromptState('rated');
@@ -1336,9 +1347,10 @@ function getPageSEOData(doc, pageUrl) {
     .filter(href => href && !href.startsWith('mailto:') && !href.startsWith('tel:') && !href.startsWith('javascript:'))
     .map(href => {
       try {
-        const url = new URL(href, pageUrl).toString();
-        const origin = new URL(url).origin;
-        return { url, isExternal: baseOrigin ? origin !== baseOrigin : false };
+        const parsed = new URL(href, pageUrl);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+        const url = parsed.toString();
+        return { url, isExternal: baseOrigin ? parsed.origin !== baseOrigin : false };
       } catch (e) {
         return null;
       }

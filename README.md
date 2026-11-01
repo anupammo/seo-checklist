@@ -190,7 +190,7 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
 
 ## File & Folder Structure for Chrome Web Store Upload
 
-Only include the following files/folders in your upload ZIP:
+Run `./scripts/build-zip.sh` to build `dist/seo-checklist-v<version>.zip` automatically. It includes only the following files:
 
 ```
 SEO Checklist/

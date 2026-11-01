@@ -996,6 +996,21 @@ kbd {
   color: var(--text-3);
 }
 
+.link-btn {
+  margin-top: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 11px;
+  color: var(--text-3);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  color: var(--accent);
+}
+
 .review-card {
   display: flex;
   align-items: center;

@@ -1,36 +1,23 @@
 SEO Checklist - Free On-Page SEO Checker, Audit & PDF Report
 
-★ Featured on the Chrome Web Store ★
+Open any web page, click SEO Checklist, and get an instant on-page audit: a score out of 100, a ranked list of what to fix, and clear advice for every check. No sign-up, no account, and nothing you analyze leaves your browser.
 
-What it does:
-✓ Instant SEO scoring (0-100)
-✓ Title & meta description length measured in pixels, like Google
-✓ Broken link checker (internal, plus external on request)
-✓ Image optimization and missing alt / width / height
-✓ Printable PDF SEO report
-✓ Heading structure analysis
-✓ Content quality evaluation
-✓ Technical SEO checks
-✓ Google Analytics (GA4) / Tag Manager detection with tag IDs
-✓ Quick access to Google Rich Results Testing
-✓ Google PageSpeed Insights integration
-✓ Facebook Sharing Debugger access
-✓ LinkedIn Post Inspector access
+WHAT YOU GET
+✓ Score and Top fixes: see the issues with the biggest impact first
+✓ Score history: re-check after a fix and see your progress (saved on your device only)
+✓ Google search preview: desktop and mobile, with title and description width measured in pixels the way Google cuts them off. Edit the text live to test new versions.
+✓ Social share preview: Open Graph and Twitter card check, with missing tags listed
+✓ Headings outline: H1 to H6 tree with skipped levels highlighted
+✓ Broken link checker for internal links, plus external links on request
+✓ Images: file size, missing alt text and missing width/height
+✓ Indexability: robots noindex/nofollow, canonical tag, page language
+✓ Structured data types (JSON-LD and microdata) and Google Analytics / Tag Manager detection
+✓ Printable PDF report and one-click copy of a text summary
+✓ One-click links to Rich Results Test, PageSpeed Insights, Facebook Sharing Debugger, LinkedIn Post Inspector, Schema Validator, Wayback Machine, robots.txt and sitemap.xml
+✓ Dark mode and keyboard shortcuts (Alt+Shift+S to open)
 
-Why choose us:
-🔍 No data collection - 100% private
-🔒 No access to your websites needed at install; it only reads the tab you analyze, when you click
-🚀 One-click analysis
-💡 Actionable recommendations
-🔗 Built-in links to external SEO testing tools
+PRIVACY
+The extension only reads the tab you analyze, when you open it. It does not ask for access to all websites at install. Checking external links is optional and asks for permission only when you choose it. No data is sent to us or anyone else.
 
-Perfect for:
-• SEO specialists
-• Content creators
-• Web developers
-• Marketing teams
-• Digital marketers
-
-Install now to optimize pages in seconds!
-
-Keywords: seo analyzer, on-page optimization, meta tag checker, content audit, technical seo, ranking factors, rich snippets, page speed, facebook sharing, linkedin sharing, google analytics, ga tag
+WHO IT'S FOR
+SEO specialists, content writers, web developers, marketers and agencies who want a fast, reliable check before publishing.
