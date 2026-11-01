@@ -14,7 +14,8 @@
 | Install warning | `host_permissions: http://*/*, https://*/*` + `notifications` → Chrome shows **"Read and change all your data on all websites"** | Biggest install-conversion killer for a tool that claims to be privacy-first |
 | Update behavior | Opens a new tab **and** shows a system notification on every update | Users who didn't ask for it often uninstall right away |
 | v1.2.9 fixes | v1.2.9 removed notifications and host permissions, but **v1.4 never got those commits** | v1.4 undid the permission cleanup |
-| Store description | Says *"Featured in 'Top SEO Tools' by Search Engine Land"* | If this can't be proven, it breaks CWS rules on misleading claims and puts the listing at risk. Remove it unless there's a link to the article |
+| CWS "Featured" badge | Already on the listing | A strong trust signal. Use it in marketing and protect it |
+| Store description | Says *"Featured in 'Top SEO Tools' by Search Engine Land"* | This is a different claim from the CWS badge. If there's no Search Engine Land article to link, replace it with "Featured on the Chrome Web Store" (true and checkable) |
 | Feature depth | Good basic on-page checks, social preview, PDF report, tool launcher | Missing several checks that every top competitor has (see §2) |
 
 ---
@@ -58,7 +59,7 @@ Numbers come from third-party trackers (ExtScope, review roundups), so treat the
 | T8 | **Lazy-loaded images** | Read `data-src`, `srcset`, and `currentSrc` too, so lazy images aren't skipped |
 | T9 | **Replace `alert()` (6 places)** | Show errors inside the popup instead of browser alerts |
 | T10 | **Rename "Test Recent URL"** | Rename it to "Test this page in…" so it's clear what it does |
-| T11 | **Store listing cleanup** | Remove the unproven "Featured in Search Engine Land" line and the vague "Updated for 2026 ranking factors". Fix the README's privacy/permissions text to match the new manifest. Update the upload-ZIP file list (it's missing `background.js`, `popup.css`, `report-print.js`) |
+| T11 | **Store listing cleanup** | Replace "Featured in 'Top SEO Tools' by Search Engine Land" with "Featured on the Chrome Web Store" (unless there's a Search Engine Land article to link) and the vague "Updated for 2026 ranking factors". Fix the README's privacy/permissions text to match the new manifest. Update the upload-ZIP file list (it's missing `background.js`, `popup.css`, `report-print.js`) |
 
 ### P1 – New features (pick 5–6 for v1.5, rest for v1.6)
 
@@ -103,7 +104,7 @@ The goal needs about **+250 net users** (installs minus uninstalls). Most instal
 - **Long description:** answer the questions people have before installing: What does it check? Is it free? What permissions does it need? Does it send data? Use real keywords people search for: *seo checker, meta tag checker, seo audit, on-page seo, heading checker, broken link checker, schema checker, serp preview*. No keyword lists, no fake badges.
 - **5 screenshots at 1280×800** with a caption on each: (1) score + checklist, (2) SERP preview, (3) indexability, (4) PDF report, (5) links/images panel. **Small promo tile at 440×280.**
 - **Localize** the listing (title + descriptions) into es, pt-BR, de, fr, hi, id, ja. The store has built-in localization, and it's a cheap way to show up in more searches.
-- **Aim for the "Featured" badge:** Google gives it to extensions that follow best practices (MV3, minimal permissions, good listing, privacy disclosures). T1 + T11 put us in a good position to request it through the One Stop Support form.
+- **Use the "Featured" badge we already have:** the listing already shows Google's Chrome Web Store "Featured" badge. Mention it in the first screenshot, on the landing page and in launch posts ("Featured on the Chrome Web Store"). To keep it, stay within Google's best practices (minimal permissions, clear privacy disclosures, an accurate listing). T1 and T11 also protect the badge.
 
 ### B. Launch channels (weeks 2–4)
 
