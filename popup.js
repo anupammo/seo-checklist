@@ -16,6 +16,61 @@ const reportState = {
 
 let socialPreviewEl = null;
 
+// Bumped on every analysis so late results from an earlier run are ignored.
+let analysisRunId = 0;
+
+const linkCheckState = {
+  pageData: null,
+  internal: [],
+  internalMeta: null,
+  external: null,
+  externalMeta: null
+};
+
+// Only needed for the optional "check external links and images" step.
+const HOST_ACCESS_ORIGINS = ['http://*/*', 'https://*/*'];
+
+// Google cuts off titles and descriptions by pixel width, not character count.
+const TITLE_MAX_PX = 580;
+const TITLE_MIN_CHARS = 30;
+const DESCRIPTION_MAX_PX = 920;
+const DESCRIPTION_MIN_CHARS = 100;
+const THIN_CONTENT_WORDS = 300;
+
+function showPopupError(message) {
+  const el = document.getElementById('popupError');
+  if (!el) return;
+  el.textContent = message;
+  el.classList.remove('hidden');
+}
+
+function clearPopupError() {
+  const el = document.getElementById('popupError');
+  if (!el) return;
+  el.textContent = '';
+  el.classList.add('hidden');
+}
+
+function initWhatsNewBanner() {
+  const banner = document.getElementById('whatsNew');
+  if (!banner || !chrome.storage || !chrome.storage.local) return;
+
+  chrome.storage.local.get('whatsNewVersion', (items) => {
+    if (chrome.runtime.lastError || !items || !items.whatsNewVersion) return;
+    const versionEl = document.getElementById('whatsNewVersion');
+    if (versionEl) versionEl.textContent = items.whatsNewVersion;
+    banner.classList.remove('hidden');
+  });
+
+  const dismissBtn = document.getElementById('whatsNewDismiss');
+  if (dismissBtn) {
+    dismissBtn.addEventListener('click', () => {
+      banner.classList.add('hidden');
+      chrome.storage.local.remove('whatsNewVersion');
+    });
+  }
+}
+
 function isInjectablePageUrl(url) {
   if (!url || typeof url !== 'string') {
     return false;
@@ -72,7 +127,29 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
+  initWhatsNewBanner();
+
+  const checkExternalBtn = document.getElementById('checkExternalLinksBtn');
+  if (checkExternalBtn) {
+    checkExternalBtn.addEventListener('click', function() {
+      // permissions.request must run directly inside the click handler.
+      chrome.permissions.request({ origins: HOST_ACCESS_ORIGINS }, (granted) => {
+        if (chrome.runtime.lastError || !granted) {
+          showPopupError('Permission not granted. External links and images were not checked.');
+          return;
+        }
+        clearPopupError();
+        checkExternalBtn.classList.add('hidden');
+        runExternalChecks(analysisRunId);
+      });
+    });
+  }
+
   analyzeBtn.addEventListener('click', function() {
+    analysisRunId += 1;
+    const runId = analysisRunId;
+    clearPopupError();
+    setExternalCheckButtonVisible(false);
     resetReportState();
     setExportButtonState(false);
     loading.classList.remove('hidden');
@@ -86,12 +163,12 @@ document.addEventListener('DOMContentLoaded', function() {
       const tab = tabs[0];
       reportState.pageUrl = tab.url || '';
       if (!isInjectablePageUrl(reportState.pageUrl)) {
-        alert('This page cannot be analyzed. Open a regular website (http or https) and try again.');
+        showPopupError('This page cannot be analyzed. Open a regular website (http or https) and try again.');
         loading.classList.add('hidden');
         return;
       }
       if (!chrome.scripting) {
-        alert('chrome.scripting API not available. Make sure you are using Manifest V3 and have the correct permissions.');
+        showPopupError('Page analysis is not available in this browser. Please update Chrome and try again.');
         loading.classList.add('hidden');
         return;
       }
@@ -100,7 +177,7 @@ document.addEventListener('DOMContentLoaded', function() {
         func: () => document.documentElement.outerHTML
       }, (results) => {
         if (chrome.runtime.lastError || !results || !results[0] || !results[0].result) {
-          alert('Unable to fetch page HTML. Try refreshing the page or check permissions.');
+          showPopupError('Unable to read this page. Refresh the page and try again.');
           loading.classList.add('hidden');
           return;
         }
@@ -111,10 +188,9 @@ document.addEventListener('DOMContentLoaded', function() {
           const data = getPageSEOData(doc, tab.url);
           displayResults(data);
           resultsContainer.classList.remove('hidden');
-          checkBrokenLinks(data.links.internalUrls, data.links.externalCount);
-          checkImageOptimization(data.images.auditItems);
+          runResourceChecks(tab.id, data, runId);
         } catch (e) {
-          alert('Error analyzing HTML: ' + e.message);
+          showPopupError('Error analyzing this page: ' + e.message);
         } finally {
           loading.classList.add('hidden');
         }
@@ -287,9 +363,79 @@ function normalizeUrl(url, pageUrl) {
   }
 }
 
+let measureCanvas = null;
+
+function measureTextWidth(text, font) {
+  if (!text) return 0;
+  if (!measureCanvas) measureCanvas = document.createElement('canvas');
+  const context = measureCanvas.getContext('2d');
+  context.font = font;
+  return Math.round(context.measureText(text).width);
+}
+
+function getFirstSrcsetUrl(srcset) {
+  if (!srcset) return '';
+  return srcset.split(',')[0].trim().split(/\s+/)[0] || '';
+}
+
+// Lazy-loading scripts often leave a placeholder in src and put the real URL elsewhere.
+function getImageSource(img) {
+  const candidates = [
+    img.getAttribute('src'),
+    img.getAttribute('data-src'),
+    img.getAttribute('data-lazy-src'),
+    img.getAttribute('data-original'),
+    getFirstSrcsetUrl(img.getAttribute('srcset')),
+    getFirstSrcsetUrl(img.getAttribute('data-srcset'))
+  ];
+  return candidates
+    .map(value => (value || '').trim())
+    .find(value => value && !value.startsWith('data:')) || '';
+}
+
+function getMainContentText(doc) {
+  const main = doc.querySelector('main, article, .main-content, .post-content');
+  const root = main || doc.body;
+  if (!root) return '';
+
+  const clone = root.cloneNode(true);
+  const nonContent = main
+    ? 'script, style, noscript, template, svg, iframe'
+    : 'script, style, noscript, template, svg, iframe, nav, header, footer, aside';
+  clone.querySelectorAll(nonContent).forEach(node => node.remove());
+  return clone.textContent || '';
+}
+
+const ANALYTICS_SRC_PATTERN = /googletagmanager\.com\/(gtag\/js|gtm\.js|ns\.html)|google-analytics\.com\/(analytics|ga)\.js/i;
+const ANALYTICS_INLINE_PATTERN = /gtag\(\s*['"](config|js)['"]|googletagmanager\.com\/gtm\.js|GoogleAnalyticsObject|\bga\(\s*['"]create['"]/;
+const ANALYTICS_ID_PATTERN = /\b(G-[A-Z0-9]{6,12}|UA-\d{4,10}-\d{1,4}|GTM-[A-Z0-9]{4,9})\b/g;
+
+// Search Console verification tags are not analytics, so they are not counted here.
+function detectGoogleAnalytics(doc) {
+  const ids = new Set();
+  let found = false;
+
+  doc.querySelectorAll('script[src], iframe[src]').forEach(el => {
+    const src = el.getAttribute('src') || '';
+    if (!ANALYTICS_SRC_PATTERN.test(src)) return;
+    found = true;
+    (src.match(ANALYTICS_ID_PATTERN) || []).forEach(id => ids.add(id));
+  });
+
+  doc.querySelectorAll('script:not([src])').forEach(script => {
+    const code = script.textContent || '';
+    if (!ANALYTICS_INLINE_PATTERN.test(code)) return;
+    found = true;
+    (code.match(ANALYTICS_ID_PATTERN) || []).forEach(id => ids.add(id));
+  });
+
+  return { found, ids: Array.from(ids) };
+}
+
 function getPageSEOData(doc, pageUrl) {
   function countWords(text) {
-    return text ? text.trim().split(/\s+/).length : 0;
+    const trimmed = (text || '').trim();
+    return trimmed ? trimmed.split(/\s+/).length : 0;
   }
 
   const title = doc.title || '';
@@ -303,14 +449,13 @@ function getPageSEOData(doc, pageUrl) {
   }));
   const headingOrderIssues = getHeadingOrderIssues(headingSequence);
 
-  const mainContent = doc.querySelector('main, article, .main-content, .post-content') || doc.body;
-  const wordCount = countWords(mainContent.textContent);
+  const wordCount = countWords(getMainContentText(doc));
   const images = doc.querySelectorAll('img');
   const imagesWithAlt = Array.from(images).filter(img => img.alt && img.alt.trim()).length;
 
   const imageAuditItems = Array.from(images)
     .map((img, index) => {
-      const src = img.getAttribute('src') || '';
+      const src = getImageSource(img);
       const normalizedSrc = normalizeUrl(src, pageUrl);
       const widthAttr = parsePositiveInt(img.getAttribute('width'));
       const heightAttr = parsePositiveInt(img.getAttribute('height'));
@@ -362,13 +507,19 @@ function getPageSEOData(doc, pageUrl) {
   const viewport = doc.querySelector('meta[name="viewport"]');
   const canonical = doc.querySelector('link[rel="canonical"]');
   const schema = doc.querySelector('script[type="application/ld+json"]');
-  const gaTag = doc.querySelector('script[src*="googletagmanager"], script[src*="google-analytics"], meta[name="google-site-verification"]') || 
-                 doc.body.innerHTML.includes('gtag') || 
-                 doc.body.innerHTML.includes('GA_MEASUREMENT_ID');
+  const analytics = detectGoogleAnalytics(doc);
 
   return {
-    title: { text: title, length: title.length },
-    metaDescription: { text: metaDesc, length: metaDesc.length },
+    title: {
+      text: title,
+      length: title.length,
+      pixelWidth: measureTextWidth(title, '20px Arial')
+    },
+    metaDescription: {
+      text: metaDesc,
+      length: metaDesc.length,
+      pixelWidth: measureTextWidth(metaDesc, '14px Arial')
+    },
     headings: { h1: h1.length, h2: h2.length },
     headingOrder: {
       issuesCount: headingOrderIssues.length,
@@ -396,7 +547,8 @@ function getPageSEOData(doc, pageUrl) {
     viewport: !!viewport,
     canonical: !!canonical,
     schema: !!schema,
-    gaTag: !!gaTag
+    gaTag: analytics.found,
+    analyticsIds: analytics.ids
   };
 }
 
@@ -416,23 +568,34 @@ function resetReportState() {
   reportState.imageOptimization = { items: [], meta: null };
 }
 
+function getLengthTooltip(field, minChars, maxPx, name) {
+  if (!field.length) return `No ${name} found`;
+  if (field.pixelWidth > maxPx) {
+    return `About ${field.pixelWidth}px wide. Google shows about ${maxPx}px, so this ${name} may be cut off: "${field.text}"`;
+  }
+  if (field.length < minChars) {
+    return `Short ${name} (under ${minChars} characters). Add more detail: "${field.text}"`;
+  }
+  return `Fits in Google results (${field.pixelWidth}px of about ${maxPx}px): "${field.text}"`;
+}
+
 function getChecks(data) {
   return [
     {
       id: 'titleTagStatus',
       label: 'Title Tag',
-      good: data.title.length >= 50 && data.title.length <= 60,
-      warning: data.title.length > 0 && (data.title.length < 50 || data.title.length > 60),
-      text: `${data.title.length} chars`,
-      tooltip: data.title.text
+      good: data.title.length >= TITLE_MIN_CHARS && data.title.pixelWidth <= TITLE_MAX_PX,
+      warning: data.title.length > 0 && (data.title.length < TITLE_MIN_CHARS || data.title.pixelWidth > TITLE_MAX_PX),
+      text: data.title.length ? `${data.title.length} chars · ${data.title.pixelWidth}px` : 'Missing',
+      tooltip: getLengthTooltip(data.title, TITLE_MIN_CHARS, TITLE_MAX_PX, 'title')
     },
     {
       id: 'metaDescStatus',
       label: 'Meta Description',
-      good: data.metaDescription.length >= 120 && data.metaDescription.length <= 160,
-      warning: data.metaDescription.length > 0 && (data.metaDescription.length < 120 || data.metaDescription.length > 160),
-      text: `${data.metaDescription.length} chars`,
-      tooltip: data.metaDescription.text
+      good: data.metaDescription.length >= DESCRIPTION_MIN_CHARS && data.metaDescription.pixelWidth <= DESCRIPTION_MAX_PX,
+      warning: data.metaDescription.length > 0 && (data.metaDescription.length < DESCRIPTION_MIN_CHARS || data.metaDescription.pixelWidth > DESCRIPTION_MAX_PX),
+      text: data.metaDescription.length ? `${data.metaDescription.length} chars · ${data.metaDescription.pixelWidth}px` : 'Missing',
+      tooltip: getLengthTooltip(data.metaDescription, DESCRIPTION_MIN_CHARS, DESCRIPTION_MAX_PX, 'description')
     },
     {
       id: 'headingsStatus',
@@ -453,10 +616,12 @@ function getChecks(data) {
     {
       id: 'wordCountStatus',
       label: 'Content Length',
-      good: data.content.wordCount >= 500,
-      warning: data.content.wordCount > 0 && data.content.wordCount < 500,
+      good: data.content.wordCount >= THIN_CONTENT_WORDS,
+      warning: data.content.wordCount > 0 && data.content.wordCount < THIN_CONTENT_WORDS,
       text: `${data.content.wordCount} words`,
-      tooltip: ''
+      tooltip: data.content.wordCount >= THIN_CONTENT_WORDS
+        ? 'Enough content for search engines to understand the page'
+        : `Thin content? Under ${THIN_CONTENT_WORDS} words is fine for contact or product pages, but articles usually need more`
     },
     {
       id: 'imageAltsStatus',
@@ -520,7 +685,9 @@ function getChecks(data) {
       good: data.gaTag,
       warning: false,
       text: data.gaTag ? 'Found' : 'Missing',
-      tooltip: data.gaTag ? 'Google Analytics tag found' : 'No Google Analytics tag detected'
+      tooltip: data.gaTag
+        ? (data.analyticsIds.length ? `Found: ${data.analyticsIds.join(', ')}` : 'Google Analytics / Tag Manager script found')
+        : 'No Google Analytics or Tag Manager script detected'
     },
     {
       id: 'imageDimensionsStatus',
@@ -616,7 +783,7 @@ function displayResults(data) {
     <div class="detailed-item"><strong>Viewport:</strong> ${data.viewport ? '<span class="tag">Yes</span>' : '<span class="tag">No</span>'}</div>
     <div class="detailed-item"><strong>Canonical:</strong> ${data.canonical ? '<span class="tag">Yes</span>' : '<span class="tag">No</span>'}</div>
     <div class="detailed-item"><strong>Schema:</strong> ${data.schema ? '<span class="tag">Yes</span>' : '<span class="tag">No</span>'}</div>
-    <div class="detailed-item"><strong>Google Analytics:</strong> ${data.gaTag ? '<span class="tag">Yes</span>' : '<span class="tag">No</span>'}</div>
+    <div class="detailed-item"><strong>Google Analytics:</strong> ${data.gaTag ? `<span class="tag">Yes</span> ${escapeHtml(data.analyticsIds.join(', '))}` : '<span class="tag">No</span>'}</div>
   `;
 }
 
@@ -629,7 +796,7 @@ function resetBrokenLinksUI(totalLinks, externalCount) {
   const summary = document.getElementById('brokenLinksSummary');
   const list = document.getElementById('brokenLinksList');
   if (summary) {
-    const externalNote = externalCount ? ` External links skipped: ${externalCount}.` : '';
+    const externalNote = externalCount ? ` External links: ${externalCount}.` : '';
     summary.textContent = totalLinks > 0 ? `Checking ${totalLinks} internal link(s)...${externalNote}` : `No internal links found.${externalNote}`;
   }
   if (list) {
@@ -738,55 +905,22 @@ function classifyImageOpportunity(sizeBytes, extension, missingDimensions) {
   return { scope, recommendation };
 }
 
-async function checkImageOptimization(imageItems) {
-  const uniqueMap = new Map();
-  imageItems.forEach(item => {
-    if (!uniqueMap.has(item.src)) {
-      uniqueMap.set(item.src, item);
-    }
-  });
-
-  const uniqueImages = Array.from(uniqueMap.values()).filter(item => isHttpUrl(item.src));
-  if (uniqueImages.length === 0) {
-    setImageOptimizationStatus('No images', 'good', 'No HTTP(S) images to optimize');
-    reportState.imageOptimization = {
-      items: [],
-      meta: { checked: 0, skipped: 0, total: 0 }
-    };
-    return;
-  }
-
-  const limitedImages = uniqueImages.slice(0, IMAGE_CHECK_LIMIT);
-  const skippedCount = Math.max(0, uniqueImages.length - limitedImages.length);
-  const results = await runImageOptimizationChecks(limitedImages, IMAGE_CHECK_CONCURRENCY);
-
-  renderImageOptimizationResults(results, {
-    checked: limitedImages.length,
-    skipped: skippedCount,
-    total: uniqueImages.length
-  });
+function describeImage(image, sizeBytes, error) {
+  const classification = classifyImageOpportunity(sizeBytes, getImageExtension(image.src), !image.hasExplicitDimensions);
+  const result = {
+    url: image.src,
+    sizeBytes,
+    sizeLabel: formatBytes(sizeBytes),
+    scope: classification.scope,
+    recommendation: classification.recommendation,
+    missingDimensions: !image.hasExplicitDimensions
+  };
+  if (error) result.error = error;
+  return result;
 }
 
-async function runImageOptimizationChecks(images, concurrency) {
-  const results = [];
-  let currentIndex = 0;
-
-  const workers = new Array(Math.min(concurrency, images.length)).fill(null).map(async () => {
-    while (currentIndex < images.length) {
-      const image = images[currentIndex];
-      currentIndex += 1;
-      const result = await checkSingleImageOptimization(image);
-      results.push(result);
-    }
-  });
-
-  await Promise.all(workers);
-  return results;
-}
-
+// Runs from the popup, so it needs the optional host permission.
 async function checkSingleImageOptimization(image) {
-  const extension = getImageExtension(image.src);
-
   try {
     let response = await fetch(image.src, {
       method: 'HEAD',
@@ -802,28 +936,9 @@ async function checkSingleImageOptimization(image) {
       });
     }
 
-    const sizeBytes = parseContentLength(response.headers.get('content-length'));
-    const classification = classifyImageOpportunity(sizeBytes, extension, !image.hasExplicitDimensions);
-
-    return {
-      url: image.src,
-      sizeBytes,
-      sizeLabel: formatBytes(sizeBytes),
-      scope: classification.scope,
-      recommendation: classification.recommendation,
-      missingDimensions: !image.hasExplicitDimensions
-    };
+    return describeImage(image, parseContentLength(response.headers.get('content-length')));
   } catch (error) {
-    const classification = classifyImageOpportunity(null, extension, !image.hasExplicitDimensions);
-    return {
-      url: image.src,
-      sizeBytes: null,
-      sizeLabel: 'Unknown',
-      scope: classification.scope,
-      recommendation: classification.recommendation,
-      missingDimensions: !image.hasExplicitDimensions,
-      error: error.message
-    };
+    return describeImage(image, null, error.message);
   }
 }
 
@@ -846,7 +961,10 @@ function renderImageOptimizationResults(results, meta) {
   const missingDimensions = sorted.filter(item => item.missingDimensions).length;
   const skippedText = meta.skipped ? ` ${meta.skipped} skipped.` : '';
 
-  summary.textContent = `Checked ${meta.checked} image(s). High: ${high}, Medium: ${medium}, Missing width/height: ${missingDimensions}, Unknown size: ${unknown}.${skippedText}`;
+  const unknownHint = meta.unknownBecauseExternal
+    ? ' Unknown sizes are for images on other domains; use "Check external links and images" to measure them.'
+    : '';
+  summary.textContent = `Checked ${meta.checked} image(s). High: ${high}, Medium: ${medium}, Missing width/height: ${missingDimensions}, Unknown size: ${unknown}.${skippedText}${unknownHint}`;
 
   if (high > 0) {
     setImageOptimizationStatus(`${high} high`, 'bad', 'High-impact image optimization opportunities found');
@@ -888,44 +1006,260 @@ function isHttpUrl(url) {
   return url.startsWith('http://') || url.startsWith('https://');
 }
 
-async function checkBrokenLinks(urls, externalCount) {
-  const uniqueUrls = Array.from(new Set(urls)).filter(isHttpUrl);
-  if (uniqueUrls.length === 0) {
-    reportState.brokenLinks = {
-      items: [],
-      meta: { checked: 0, skipped: 0, total: 0, external: externalCount }
-    };
-    return;
-  }
-
-  const limitedUrls = uniqueUrls.slice(0, LINK_CHECK_LIMIT);
-  const skippedCount = Math.max(0, uniqueUrls.length - limitedUrls.length);
-
-  const results = await runLinkChecks(limitedUrls, LINK_CHECK_CONCURRENCY);
-  const broken = results.filter(result => result.broken);
-  renderBrokenLinks(broken, {
-    checked: limitedUrls.length,
-    skipped: skippedCount,
-    total: uniqueUrls.length,
-    external: externalCount
-  });
+async function runLinkChecks(urls, concurrency) {
+  return runPool(urls, concurrency, checkSingleLink);
 }
 
-async function runLinkChecks(urls, concurrency) {
-  const results = [];
-  let currentIndex = 0;
+async function runPool(items, concurrency, worker) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
 
-  const workers = new Array(Math.min(concurrency, urls.length)).fill(null).map(async () => {
-    while (currentIndex < urls.length) {
-      const url = urls[currentIndex];
-      currentIndex += 1;
-      const result = await checkSingleLink(url);
-      results.push(result);
+  const workers = new Array(Math.min(concurrency, items.length)).fill(null).map(async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await worker(items[index]);
     }
   });
 
   await Promise.all(workers);
   return results;
+}
+
+function hasHostAccess() {
+  return new Promise(resolve => {
+    if (!chrome.permissions) {
+      resolve(false);
+      return;
+    }
+    chrome.permissions.contains({ origins: HOST_ACCESS_ORIGINS }, granted => {
+      resolve(!chrome.runtime.lastError && !!granted);
+    });
+  });
+}
+
+function runInPage(tabId, func, args) {
+  return new Promise((resolve, reject) => {
+    chrome.scripting.executeScript({ target: { tabId }, func, args }, results => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      if (!results || !results[0]) {
+        reject(new Error('No result from page'));
+        return;
+      }
+      resolve(results[0].result);
+    });
+  });
+}
+
+// Injected into the analyzed page. Requests from here count as the page's own
+// same-site requests, so they work with activeTab alone (no host permission).
+// Must stay self-contained: it is serialized and run in the page.
+async function pageContextResourceCheck(linkUrls, imageUrls, linkConcurrency, imageConcurrency) {
+  async function pool(items, concurrency, worker) {
+    const results = new Array(items.length);
+    let nextIndex = 0;
+    const workers = new Array(Math.min(concurrency, items.length)).fill(null).map(async () => {
+      while (nextIndex < items.length) {
+        const index = nextIndex;
+        nextIndex += 1;
+        results[index] = await worker(items[index]);
+      }
+    });
+    await Promise.all(workers);
+    return results;
+  }
+
+  async function headOrGet(url) {
+    let response = await fetch(url, { method: 'HEAD', cache: 'no-store', redirect: 'follow' });
+    if (response.status === 405 || response.status === 501) {
+      response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow' });
+    }
+    return response;
+  }
+
+  async function checkLink(url) {
+    try {
+      const response = await headOrGet(url);
+      return { url, broken: response.status >= 400, status: response.status };
+    } catch (error) {
+      // A same-site link that redirects to another domain is blocked by CORS.
+      // A no-cors request can't read the status, but it shows the server answered.
+      try {
+        await fetch(url, { mode: 'no-cors', cache: 'no-store' });
+        return { url, broken: false, status: 'opaque' };
+      } catch (secondError) {
+        return { url, broken: true, status: 0, error: secondError.message };
+      }
+    }
+  }
+
+  // Images the page already loaded have their size in Resource Timing
+  // (cross-origin ones only if the server sends Timing-Allow-Origin).
+  const loadedSizes = new Map();
+  performance.getEntriesByType('resource').forEach(entry => {
+    const size = entry.encodedBodySize || entry.transferSize || 0;
+    if (size > 0) loadedSizes.set(entry.name, size);
+  });
+
+  async function checkImage(url) {
+    if (loadedSizes.has(url)) {
+      return { url, sizeBytes: loadedSizes.get(url) };
+    }
+    try {
+      if (new URL(url).origin === location.origin) {
+        const response = await headOrGet(url);
+        const length = Number.parseInt(response.headers.get('content-length') || '', 10);
+        return { url, sizeBytes: Number.isFinite(length) && length > 0 ? length : null };
+      }
+    } catch (error) {
+      // Fall through to "unknown".
+    }
+    return { url, sizeBytes: null };
+  }
+
+  const [links, images] = await Promise.all([
+    pool(linkUrls, linkConcurrency, checkLink),
+    pool(imageUrls, imageConcurrency, checkImage)
+  ]);
+  return { links, images };
+}
+
+function getUniqueHttpImages(imageItems) {
+  const uniqueMap = new Map();
+  imageItems.forEach(item => {
+    if (isHttpUrl(item.src) && !uniqueMap.has(item.src)) {
+      uniqueMap.set(item.src, item);
+    }
+  });
+  return Array.from(uniqueMap.values());
+}
+
+function setRemoteChecksUnavailable(reason) {
+  const message = `Could not run this check: ${reason}. Refresh the page and try again.`;
+  setBrokenLinksStatus('Unavailable', 'warning', message);
+  setImageOptimizationStatus('Unavailable', 'warning', message);
+  const brokenSummary = document.getElementById('brokenLinksSummary');
+  const imageSummary = document.getElementById('imageOptimizationSummary');
+  if (brokenSummary) brokenSummary.textContent = message;
+  if (imageSummary) imageSummary.textContent = message;
+}
+
+async function runResourceChecks(tabId, data, runId) {
+  const internalUrls = Array.from(new Set(data.links.internalUrls)).filter(isHttpUrl);
+  const linkTargets = internalUrls.slice(0, LINK_CHECK_LIMIT);
+  const images = getUniqueHttpImages(data.images.auditItems);
+  const imageTargets = images.slice(0, IMAGE_CHECK_LIMIT);
+
+  linkCheckState.pageData = data;
+  linkCheckState.internal = [];
+  linkCheckState.internalMeta = {
+    checked: linkTargets.length,
+    skipped: internalUrls.length - linkTargets.length,
+    total: internalUrls.length,
+    external: data.links.externalCount
+  };
+  linkCheckState.external = null;
+  linkCheckState.externalMeta = null;
+
+  const imageMeta = {
+    checked: imageTargets.length,
+    skipped: images.length - imageTargets.length,
+    total: images.length
+  };
+
+  let pageResults;
+  try {
+    pageResults = await runInPage(tabId, pageContextResourceCheck, [
+      linkTargets,
+      imageTargets.map(image => image.src),
+      LINK_CHECK_CONCURRENCY,
+      IMAGE_CHECK_CONCURRENCY
+    ]);
+  } catch (error) {
+    if (runId === analysisRunId) setRemoteChecksUnavailable(error.message);
+    return;
+  }
+  if (runId !== analysisRunId) return;
+
+  const canFetchAnywhere = await hasHostAccess();
+  if (runId !== analysisRunId) return;
+
+  linkCheckState.internal = pageResults.links || [];
+  renderBrokenLinks();
+
+  const sizeByUrl = new Map((pageResults.images || []).map(item => [item.url, item.sizeBytes]));
+  const imageResults = await runPool(imageTargets, IMAGE_CHECK_CONCURRENCY, async image => {
+    const size = sizeByUrl.get(image.src);
+    if (Number.isFinite(size) && size > 0) return describeImage(image, size);
+    if (canFetchAnywhere) return checkSingleImageOptimization(image);
+    return describeImage(image, null);
+  });
+  if (runId !== analysisRunId) return;
+
+  imageMeta.unknownBecauseExternal = !canFetchAnywhere && imageResults.some(item => !Number.isFinite(item.sizeBytes));
+  if (imageTargets.length > 0) {
+    renderImageOptimizationResults(imageResults, imageMeta);
+  } else {
+    reportState.imageOptimization = { items: [], meta: imageMeta };
+  }
+
+  const needsExternalAccess = data.links.externalCount > 0 || imageMeta.unknownBecauseExternal;
+  if (canFetchAnywhere) {
+    if (data.links.externalCount > 0) runExternalChecks(runId);
+  } else {
+    setExternalCheckButtonVisible(needsExternalAccess);
+  }
+}
+
+function setExternalCheckButtonVisible(isVisible) {
+  const button = document.getElementById('checkExternalLinksBtn');
+  const note = document.getElementById('checkExternalLinksNote');
+  if (button) button.classList.toggle('hidden', !isVisible);
+  if (note) note.classList.toggle('hidden', !isVisible);
+}
+
+// Needs the optional host permission (requested by the "check external" button).
+async function runExternalChecks(runId) {
+  const data = linkCheckState.pageData;
+  if (!data || runId !== analysisRunId) return;
+  setExternalCheckButtonVisible(false);
+
+  const externalUrls = Array.from(new Set(data.links.externalUrls)).filter(isHttpUrl);
+  const targets = externalUrls.slice(0, LINK_CHECK_LIMIT);
+
+  const imagesToRecheck = (reportState.imageOptimization.items || []).filter(item => !Number.isFinite(item.sizeBytes));
+  const imageItemsByUrl = new Map(getUniqueHttpImages(data.images.auditItems).map(image => [image.src, image]));
+
+  if (targets.length > 0) {
+    setBrokenLinksStatus('Checking...', 'warning', 'Checking external links');
+  }
+
+  const [externalResults, recheckedImages] = await Promise.all([
+    runLinkChecks(targets, LINK_CHECK_CONCURRENCY),
+    runPool(imagesToRecheck, IMAGE_CHECK_CONCURRENCY, item => checkSingleImageOptimization(imageItemsByUrl.get(item.url) || {
+      src: item.url,
+      hasExplicitDimensions: !item.missingDimensions
+    }))
+  ]);
+  if (runId !== analysisRunId) return;
+
+  linkCheckState.external = externalResults;
+  linkCheckState.externalMeta = {
+    checked: targets.length,
+    skipped: externalUrls.length - targets.length,
+    total: externalUrls.length
+  };
+  renderBrokenLinks();
+
+  if (recheckedImages.length > 0) {
+    const recheckedByUrl = new Map(recheckedImages.map(item => [item.url, item]));
+    const merged = reportState.imageOptimization.items.map(item => recheckedByUrl.get(item.url) || item);
+    const meta = Object.assign({}, reportState.imageOptimization.meta, { unknownBecauseExternal: false });
+    renderImageOptimizationResults(merged, meta);
+  }
 }
 
 async function checkSingleLink(url) {
@@ -968,31 +1302,41 @@ async function checkSingleLinkWithGet(url) {
   }
 }
 
-function renderBrokenLinks(brokenLinks, meta) {
+function renderBrokenLinks() {
   const summary = document.getElementById('brokenLinksSummary');
   const list = document.getElementById('brokenLinksList');
-
   if (!summary || !list) return;
 
-  list.innerHTML = '';
+  const { internal, internalMeta, external, externalMeta } = linkCheckState;
+  const brokenLinks = internal
+    .filter(item => item.broken)
+    .map(item => Object.assign({ external: false }, item))
+    .concat((external || []).filter(item => item.broken).map(item => Object.assign({}, item, { external: true })));
 
-  if (brokenLinks.length === 0) {
-    const skippedNote = meta.skipped ? ` (${meta.skipped} skipped)` : '';
-    const externalNote = meta.external ? ` External links skipped: ${meta.external}.` : '';
-    summary.textContent = `No broken internal links found. Checked ${meta.checked}.${skippedNote}${externalNote}`;
-    setBrokenLinksStatus('0 broken', 'good', 'No broken links detected');
-    reportState.brokenLinks = {
-      items: brokenLinks,
-      meta
-    };
-    return;
+  const parts = [];
+  if (internalMeta) {
+    const skipped = internalMeta.skipped ? `, ${internalMeta.skipped} skipped` : '';
+    parts.push(`Internal: ${internalMeta.checked} checked${skipped}.`);
+  }
+  if (externalMeta) {
+    const skipped = externalMeta.skipped ? `, ${externalMeta.skipped} skipped` : '';
+    parts.push(`External: ${externalMeta.checked} checked${skipped}.`);
+  } else if (internalMeta && internalMeta.external) {
+    parts.push(`External: ${internalMeta.external} not checked.`);
   }
 
-  const skippedText = meta.skipped ? `, ${meta.skipped} skipped` : '';
-  const externalText = meta.external ? `. External links skipped: ${meta.external}.` : '.';
-  summary.textContent = `${brokenLinks.length} broken internal link(s) found. Checked ${meta.checked}${skippedText}${externalText}`;
-  setBrokenLinksStatus(`${brokenLinks.length} broken`, 'bad', 'Broken internal links detected');
+  const headline = brokenLinks.length === 0
+    ? 'No broken links found.'
+    : `${brokenLinks.length} broken link(s) found.`;
+  summary.textContent = `${headline} ${parts.join(' ')}`.trim();
 
+  if (brokenLinks.length === 0) {
+    setBrokenLinksStatus('0 broken', 'good', 'No broken links detected');
+  } else {
+    setBrokenLinksStatus(`${brokenLinks.length} broken`, 'bad', 'Broken links detected');
+  }
+
+  list.innerHTML = '';
   brokenLinks.forEach(item => {
     const li = document.createElement('li');
     const anchor = document.createElement('a');
@@ -1002,9 +1346,12 @@ function renderBrokenLinks(brokenLinks, meta) {
     anchor.textContent = item.url;
     li.appendChild(anchor);
 
-    if (item.status && item.status !== 'opaque') {
+    const notes = [];
+    if (item.external) notes.push('external');
+    if (item.status && item.status !== 'opaque') notes.push(`status: ${item.status}`);
+    if (notes.length) {
       const status = document.createElement('span');
-      status.textContent = ` (status: ${item.status})`;
+      status.textContent = ` (${notes.join(', ')})`;
       li.appendChild(status);
     }
 
@@ -1013,7 +1360,10 @@ function renderBrokenLinks(brokenLinks, meta) {
 
   reportState.brokenLinks = {
     items: brokenLinks,
-    meta
+    meta: {
+      internal: internalMeta,
+      external: externalMeta
+    }
   };
 }
 
@@ -1039,7 +1389,7 @@ function buildReportHtmlList(items, emptyText, mapper) {
 
 function exportReportAsPdf() {
   if (!reportState.seoData) {
-    alert('Run an analysis first, then export your PDF report.');
+    showPopupError('Run an analysis first, then export your PDF report.');
     return;
   }
 
@@ -1441,12 +1791,12 @@ function exportReportAsPdf() {
     </section>
 
     <section class="section">
-      <h2>Broken Internal Links</h2>
+      <h2>Broken Links</h2>
       <ol>
         ${buildReportHtmlList(
           brokenLinks,
-          'No broken internal links found.',
-          (item) => `<li>${escapeHtml(item.url)}${item.status && item.status !== 'opaque' ? ` (status: ${escapeHtml(String(item.status))})` : ''}</li>`
+          'No broken links found.',
+          (item) => `<li>${escapeHtml(item.url)}${item.external ? ' (external)' : ''}${item.status && item.status !== 'opaque' ? ` (status: ${escapeHtml(String(item.status))})` : ''}</li>`
         )}
       </ol>
     </section>
@@ -1520,7 +1870,7 @@ function exportReportAsPdf() {
 
   const reportWindow = window.open('', '_blank');
   if (!reportWindow) {
-    alert('Unable to open report window. Please allow pop-ups and try again.');
+    showPopupError('Unable to open the report window. Please allow pop-ups and try again.');
     return;
   }
 

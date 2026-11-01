@@ -52,6 +52,8 @@ Numbers come from third-party trackers (ExtScope, review roundups), so treat the
 
 ### P0 – Fixes to existing features (do these first)
 
+**Status:** T1–T11 implemented (manifest 1.5). Still to do before release: test on real sites in Chrome, then update the store listing text and screenshots.
+
 | # | Tweak | Detail |
 |---|---|---|
 | T1 | **Remove broad host permissions + notifications** | Bring the v1.2.9 manifest changes forward. Keep only `activeTab` + `scripting`. Install warning drops from "all your data on all websites" to none at install time |

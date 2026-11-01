@@ -1,14 +1,17 @@
-SEO Checklist - The Ultimate 2026 On-Page Analyzer + SEO Testing Tools
+SEO Checklist - Free On-Page SEO Checker, Audit & PDF Report
 
-★ Featured in "Top SEO Tools" by Search Engine Land ★
+★ Featured on the Chrome Web Store ★
 
 What it does:
 ✓ Instant SEO scoring (0-100)
-✓ Title tag & meta description optimization
+✓ Title & meta description length measured in pixels, like Google
+✓ Broken link checker (internal, plus external on request)
+✓ Image optimization and missing alt / width / height
+✓ Printable PDF SEO report
 ✓ Heading structure analysis
 ✓ Content quality evaluation
 ✓ Technical SEO checks
-✓ Google Analytics / GA Tag detection
+✓ Google Analytics (GA4) / Tag Manager detection with tag IDs
 ✓ Quick access to Google Rich Results Testing
 ✓ Google PageSpeed Insights integration
 ✓ Facebook Sharing Debugger access
@@ -16,10 +19,9 @@ What it does:
 
 Why choose us:
 🔍 No data collection - 100% private
+🔒 No access to your websites needed at install; it only reads the tab you analyze, when you click
 🚀 One-click analysis
 💡 Actionable recommendations
-🛡️ v1.4 stability update: skips restricted tabs (like chrome://) to avoid runtime errors
-🎯 Updated for 2026 ranking factors
 🔗 Built-in links to external SEO testing tools
 
 Perfect for:

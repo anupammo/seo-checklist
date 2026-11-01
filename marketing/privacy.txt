@@ -1,5 +1,5 @@
 SEO Checklist Privacy Policy
-Last Updated: August 2026
+Last Updated: November 2026
 
 1. What SEO Checklist Reads
 ----------------------------
@@ -12,25 +12,27 @@ SEO Checklist does NOT collect, store, or transmit any of the following to us or
 - Browsing history -- only the single active tab is read, and only when you trigger an analysis
 - User activity such as clicks, scrolling, or keystrokes
 
-Analysis results (score, checklist, links, image lists) exist only in the popup's memory while it's open and are discarded when the popup closes. Nothing is written to persistent storage and nothing is sent to any server we operate.
+Analysis results (score, checklist, links, image lists) exist only in the popup's memory while it's open and are discarded when the popup closes. Nothing about the pages you analyze is written to storage, and nothing is sent to any server we operate. The only thing the extension stores is the version number for its one-time "What's new" message (chrome.storage, on your device).
 
 2. Outbound Requests (Broken Link & Image Checks)
 --------------------------------------------------
-To check for broken internal links and oversized images, SEO Checklist makes direct HEAD/GET requests from your browser to the link and image URLs found on the page you are analyzing -- the same URLs your browser would request if you clicked them yourself. This is why the extension requests broad host permissions (http://*/*, https://*/*): it doesn't know in advance which domains a given page will link to or load images from.
+To check for broken internal links and oversized images, SEO Checklist makes HEAD/GET requests from the page you are analyzing to the link and image URLs found on that page's own site -- the same URLs your browser would request if you clicked them yourself. This needs no extra permission.
+
+Checking external links (and images hosted on other domains) is optional. Only if you click "Check external links and images" does Chrome ask you to grant access to other sites (optional host permissions http://*/*, https://*/*). You can remove that access at any time on the extension's details page in chrome://extensions.
 
 These requests go directly from your browser to those third-party servers -- they are never routed through, logged by, or visible to us.
 
 3. External Testing Tools
 --------------------------
-When you click the "Test Recent URL" buttons (Structured Data, PageSpeed Insights, Facebook Debugger, or LinkedIn Post Inspector), you are redirected to Google, Facebook, or LinkedIn's own tools, with your current page URL passed along so the tool can pre-fill it. These are external services with their own privacy policies; we do not control or access any data they collect.
+When you click the "Test This Page In..." buttons (Structured Data, PageSpeed Insights, Facebook Debugger, or LinkedIn Post Inspector), you are redirected to Google, Facebook, or LinkedIn's own tools, with your current page URL passed along so the tool can pre-fill it. These are external services with their own privacy policies; we do not control or access any data they collect.
 
 4. Permissions Explanation
 ----------------------------
 SEO Checklist uses only the permissions required for its features:
 - activeTab: Access the currently active page only after you click the extension
 - scripting: Run analysis code on the active tab to evaluate on-page SEO elements
-- host_permissions (http://*/*, https://*/*): Allows the extension to check whether links and images found on the analyzed page are broken or oversized (see Section 2)
-- notifications: Show a local, on-device notification when a new extension version is installed -- no data is transmitted to generate this notification
+- storage: Remember, on your device only, whether you have seen the "What's new" message after an update
+- Optional host permissions (http://*/*, https://*/*): Only requested if you choose to check external links and images (see Section 2). Not granted at install.
 
 5. Changes to This Policy
 ----------------------------

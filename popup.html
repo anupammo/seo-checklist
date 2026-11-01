@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+  <meta charset="UTF-8">
   <title>SEO Checklist | On-Page Analyzer</title>
   <link rel="stylesheet" href="popup.css">
 </head>
@@ -13,6 +14,16 @@
   </div>
 
   <div class="container">
+    <div id="whatsNew" class="whats-new hidden" role="status">
+      <div class="whats-new-text">
+        <strong>What's new in v<span id="whatsNewVersion"></span>:</strong>
+        no more access to all websites needed, Google-accurate title and description lengths, and smarter content and analytics checks.
+      </div>
+      <button id="whatsNewDismiss" type="button" class="whats-new-dismiss" aria-label="Dismiss">&times;</button>
+    </div>
+
+    <div id="popupError" class="popup-error hidden" role="alert"></div>
+
     <div id="loading" class="hidden">
       <div class="spinner"></div>
       Scanning page structure...
@@ -75,11 +86,11 @@
           </svg>
         </div>
         <div class="checklist">
-          <div class="checklist-item tooltip" data-tooltip="Ideal length: 50-60 characters">
+          <div class="checklist-item tooltip" data-tooltip="Should fit in about 580px (roughly 50-60 characters) so Google does not cut it off">
             <label>Title Tag</label>
             <span id="titleTagStatus" class="status">-</span>
           </div>
-          <div class="checklist-item tooltip" data-tooltip="Ideal length: 120-160 characters">
+          <div class="checklist-item tooltip" data-tooltip="Should fit in about 920px (roughly 120-160 characters) so Google does not cut it off">
             <label>Meta Description</label>
             <span id="metaDescStatus" class="status">-</span>
           </div>
@@ -106,7 +117,7 @@
           </svg>
         </div>
         <div class="checklist">
-          <div class="checklist-item tooltip" data-tooltip="Aim for 500+ words for comprehensive content">
+          <div class="checklist-item tooltip" data-tooltip="Under 300 words may be thin content (fine for contact or product pages)">
             <label>Content Length</label>
             <span id="wordCountStatus" class="status">-</span>
           </div>
@@ -153,7 +164,7 @@
             <label>Schema Markup</label>
             <span id="schemaStatus" class="status">-</span>
           </div>
-          <div class="checklist-item tooltip" data-tooltip="Tracks user behavior and analytics">
+          <div class="checklist-item tooltip" data-tooltip="Detects Google Analytics (GA4) or Google Tag Manager">
             <label>Google Analytics Tag</label>
             <span id="gaTagStatus" class="status">-</span>
           </div>
@@ -165,8 +176,8 @@
             <label>Image Optimization</label>
             <span id="imageOptimizationStatus" class="status">-</span>
           </div>
-          <div class="checklist-item tooltip" data-tooltip="Checks broken internal links only">
-            <label>Broken Internal Links</label>
+          <div class="checklist-item tooltip" data-tooltip="Checks internal links; external links on request">
+            <label>Broken Links</label>
             <span id="brokenLinksStatus" class="status">-</span>
           </div>
         </div>
@@ -188,7 +199,7 @@
         <div id="detailedResults"></div>
         <div class="analysis-section open" data-section="broken-links">
           <button type="button" class="analysis-toggle" data-target="brokenLinksContent" aria-expanded="true">
-            <span>Broken Internal Links</span>
+            <span>Broken Links</span>
             <span class="analysis-arrow" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">
                 <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
@@ -198,6 +209,8 @@
           <div id="brokenLinksContent" class="analysis-content">
             <div id="brokenLinksSummary" class="broken-links-summary">-</div>
             <ul id="brokenLinksList" class="broken-links-list"></ul>
+            <button id="checkExternalLinksBtn" type="button" class="secondary-btn hidden">Check external links and images</button>
+            <div id="checkExternalLinksNote" class="permission-note hidden">Chrome will ask once for access to other sites. Requests go straight from your browser; nothing is collected.</div>
           </div>
         </div>
 
@@ -259,7 +272,7 @@
     </div>
 
     <div class="test-tools-section">
-      <div class="test-tools-title">Test Recent URL</div>
+      <div class="test-tools-title">Test This Page In…</div>
       <div class="test-buttons-grid">
         <button id="structuredDataBtn" class="test-btn" title="Test structured data and rich results">
           <img src="https://www.gstatic.com/search-console/scfe/favicon_128-285675eb17c90afa0fe2fbe32dd956bf.png" alt="Structured Data" class="test-btn-icon">

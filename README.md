@@ -1,7 +1,7 @@
 
-# SEO Checklist v1.4 – On-Page SEO Analyzer Chrome Extension
+# SEO Checklist v1.5 – On-Page SEO Analyzer Chrome Extension
 
-SEO Checklist is a modern, privacy-friendly Chrome extension that provides instant, client-side on-page SEO analysis for any website you visit. It gives you a clear, actionable checklist and visual feedback to help you optimize your pages for search engines—no server, no data collection, no permissions beyond what’s needed.
+SEO Checklist is a modern, privacy-friendly Chrome extension that provides instant, client-side on-page SEO analysis for any website you visit. It gives you a clear, actionable checklist and visual feedback to help you optimize your pages for search engines—no server, no data collection, and no access to your websites at install.
 
 ---
 
@@ -10,6 +10,17 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
 [**Install SEO Checklist from the Chrome Web Store**](https://chromewebstore.google.com/detail/seo-checklist/jgigdhidhmgikfnccdnehcpgoggmagfh?hl=en-GB&authuser=0)
 
 ---
+
+## What’s New in v1.5 (November 2026)
+
+- **No More "Read and Change All Your Data" Warning**: Broad website access and notifications are removed. The extension only reads the tab you analyze, when you click.
+- **Broken Link + Image Checks Without Extra Permissions**: Internal links and same-site images are now checked from the analyzed page itself.
+- **Optional External Checks**: Click "Check external links and images" to also check links and images on other domains. Chrome asks once; you can remove the access anytime.
+- **Google-Accurate Title and Description Lengths**: Measured in pixels (about 580px for titles, 920px for descriptions), the way Google cuts them off.
+- **Fairer Content Length Check**: Thin-content warning below 300 words. Menus, headers, footers and scripts no longer count as content.
+- **Accurate Google Analytics Detection**: Detects GA4 / Tag Manager and shows the tag IDs. Search Console verification tags no longer count as analytics.
+- **Lazy-Loaded Images**: Images using `data-src` / `srcset` are now included.
+- **Friendlier Messages**: Errors show inside the popup instead of browser alerts. A one-time "What's new" banner replaces the update notification, and the update page only opens for new releases (not patches).
 
 ## What’s New in v1.4 (March 2026)
 
@@ -27,6 +38,19 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
 ---
 
 ## Changelog
+
+### v1.5 (November 2026)
+
+- Removed `host_permissions` and `notifications`; added `storage` (for the one-time "What's new" banner) and optional host permissions for external checks.
+- Moved broken-link and image-size checks into the analyzed page so they work with `activeTab` only.
+- Added opt-in external link and image checks.
+- Title and meta description checks now use pixel width.
+- Content length: warning below 300 words; non-content elements excluded.
+- Fixed Google Analytics false positives; shows detected GA4/UA/GTM IDs.
+- Included lazy-loaded images in image checks.
+- Replaced `alert()` popups with in-popup messages.
+- Renamed "Test Recent URL" to "Test This Page In…".
+- Update page opens only when the release line changes (e.g. 1.4 → 1.5), not for patches.
 
 ### v1.4 (March 2026)
 
@@ -56,15 +80,15 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
 
 ## Features
 
-- **Minimal, Purpose-Built Permissions**: Uses `activeTab` + `scripting` for on-page analysis and `notifications` for update alerts. All analysis remains client-side.
+- **Minimal, Purpose-Built Permissions**: Uses `activeTab` + `scripting` for on-page analysis and `storage` for the one-time "What's new" message. Access to other sites is optional and only requested if you check external links. All analysis remains client-side.
 - **One-Click Analysis**: Instantly analyze the current tab’s HTML with a single click.
 - **Visual SEO Score**: Get a color-coded SEO score and feedback summary using expanded technical checks (web-vitals-inspired scoring signals).
 - **Detailed Checklist**: Checks for:
-  - Title tag length (50–60 chars)
-  - Meta description length (120–160 chars)
+  - Title tag length (fits in ~580px, like Google)
+  - Meta description length (fits in ~920px, like Google)
   - Heading structure (1 H1, multiple H2s)
   - Heading order (no skipped heading levels)
-  - Content length (500+ words)
+  - Content length (thin-content warning under 300 words)
   - Image alt texts
   - Internal links
   - External links
@@ -81,12 +105,12 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
 - **Google Analytics Detection**: Detects if Google Analytics or Google Tag Manager is installed on your page
 - **Social Preview Card**: Preview social metadata (title, description, image, URL) directly in the extension popup.
 - **Internal / External Link Overview**: Review separated internal and external link lists directly in the popup.
-- **Broken Link Check Status**: Checks internal links and reports broken-link status for faster technical cleanup.
+- **Broken Link Check Status**: Checks internal links automatically, and external links on request.
 - **Discernible Link Names Audit**: Detects links with missing visible text or accessible naming.
 - **Image Attribute Issues Panel**: Lists images missing alt text and/or width/height attributes.
 - **Image Optimization Opportunities**: Provides image-size based scope and optimization recommendations.
 - **Printable Report Export**: Open a dedicated report view and print or save as PDF.
-- **Test Recent URL Tools**: Quick access to external SEO testing tools:
+- **Test This Page In… Tools**: Quick access to external SEO testing tools:
   - **Structured Data / Rich Results** – Test with Google's Rich Result Testing Tool
   - **Google PageSpeed Insights** – Analyze page performance and loading speed
   - **Facebook Sharing Debugger** – Preview how your page appears when shared on Facebook
@@ -112,7 +136,7 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
 2. Click the SEO Checklist extension icon in your Chrome toolbar.
 3. Choose your action:
    - **Analyze Current Page** – Perform a detailed on-page SEO analysis with scoring and checklist
-   - **Test Recent URL** – Use external SEO tools to test your page:
+   - **Test This Page In…** – Use external SEO tools to test your page:
      - Click **Structured Data** to test rich snippets and schema markup with Google's tool
      - Click **PageSpeed Insights** to check performance metrics and optimization suggestions
      - Click **Facebook Debugger** to preview page sharing appearance on Facebook
@@ -149,9 +173,11 @@ Only include the following files/folders in your upload ZIP:
 SEO Checklist/
 │   LICENSE
 │   manifest.json
+│   background.js
 │   popup.html
+│   popup.css
 │   popup.js
-│   README.md*
+│   report-print.js
 │
 └───icons
   icon16.png
@@ -159,15 +185,17 @@ SEO Checklist/
   icon128.png
 ```
 
-Do **not** include `marketing/` or `screenshots/` folders in the upload ZIP. Upload screenshots and promo images separately in the Chrome Web Store dashboard.
+Do **not** include `marketing/`, `planning/` or `screenshots/` folders in the upload ZIP. Upload screenshots and promo images separately in the Chrome Web Store dashboard.
 
 ---
 
 ### Key Files
 
 - **manifest.json** – Extension configuration and permissions
-- **popup.html** – Extension popup UI
+- **background.js** – Update handling (release page + "What's new" flag)
+- **popup.html** / **popup.css** – Extension popup UI
 - **popup.js** – Main logic for fetching and analyzing the page
+- **report-print.js** – Print / Save as PDF helper for the report view
 - **icons/** – Extension icons
 
 ### Permissions
@@ -176,13 +204,15 @@ Do **not** include `marketing/` or `screenshots/` folders in the upload ZIP. Upl
 "permissions": [
   "scripting",
   "activeTab",
-  "notifications"
+  "storage"
 ],
-"host_permissions": [
+"optional_host_permissions": [
   "http://*/*",
   "https://*/*"
 ]
 ```
+
+The optional host permissions are not granted at install. Chrome only asks for them if you click **Check external links and images**, and you can remove them anytime on the extension's details page.
 
 ---
 

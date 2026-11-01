@@ -13,7 +13,7 @@
 </head>
 <body>
     <h1>SEO Checklist Privacy Policy</h1>
-    <p class="last-updated">Last Updated: August 2026</p>
+    <p class="last-updated">Last Updated: November 2026</p>
 
     <h2>1. What SEO Checklist Reads</h2>
     <p>When you click the extension icon and run an analysis, SEO Checklist reads the <strong>currently active tab's</strong> page content — title, meta tags, headings, images, and hyperlinks — to generate your on-page SEO checklist and score. This happens entirely inside your browser.</p>
@@ -25,22 +25,23 @@
         <li>Browsing history — only the single active tab is read, and only when you trigger an analysis</li>
         <li>User activity such as clicks, scrolling, or keystrokes</li>
     </ul>
-    <p>Analysis results (score, checklist, links, image lists) exist only in the popup's memory while it's open and are discarded when the popup closes. Nothing is written to persistent storage and nothing is sent to any server we operate.</p>
+    <p>Analysis results (score, checklist, links, image lists) exist only in the popup's memory while it's open and are discarded when the popup closes. Nothing about the pages you analyze is written to storage, and nothing is sent to any server we operate. The only thing the extension stores is the version number for its one-time "What's new" message (<code>chrome.storage</code>, on your device).</p>
 
     <h2>2. Outbound Requests (Broken Link &amp; Image Checks)</h2>
-    <p>To check for broken internal links and oversized images, SEO Checklist makes direct HEAD/GET requests from your browser to the link and image URLs found <strong>on the page you are analyzing</strong> — the same URLs your browser would request if you clicked them yourself. This is why the extension requests broad host permissions (<code>http://*/*</code>, <code>https://*/*</code>): it doesn't know in advance which domains a given page will link to or load images from.</p>
+    <p>To check for broken internal links and oversized images, SEO Checklist makes HEAD/GET requests from <strong>the page you are analyzing</strong> to the link and image URLs on that page's own site — the same URLs your browser would request if you clicked them yourself. This needs no extra permission.</p>
+    <p>Checking external links (and images hosted on other domains) is optional. Only if you click "Check external links and images" does Chrome ask you to grant access to other sites (optional host permissions <code>http://*/*</code>, <code>https://*/*</code>). You can remove that access at any time on the extension's details page in <code>chrome://extensions</code>.</p>
     <p>These requests go directly from your browser to those third-party servers — they are never routed through, logged by, or visible to us.</p>
 
     <h2>3. External Testing Tools</h2>
-    <p>When you click the "Test Recent URL" buttons (Structured Data, PageSpeed Insights, Facebook Debugger, or LinkedIn Post Inspector), you are redirected to Google, Facebook, or LinkedIn's own tools, with your current page URL passed along so the tool can pre-fill it. These are external services with their own privacy policies; we do not control or access any data they collect.</p>
+    <p>When you click the "Test This Page In…" buttons (Structured Data, PageSpeed Insights, Facebook Debugger, or LinkedIn Post Inspector), you are redirected to Google, Facebook, or LinkedIn's own tools, with your current page URL passed along so the tool can pre-fill it. These are external services with their own privacy policies; we do not control or access any data they collect.</p>
 
     <h2>4. Permissions Explanation</h2>
     <p>SEO Checklist uses only the permissions required for its features:</p>
     <ul>
         <li><code>activeTab</code>: Access the currently active page only after you click the extension</li>
         <li><code>scripting</code>: Run analysis code on the active tab to evaluate on-page SEO elements</li>
-        <li><code>host_permissions</code> (<code>http://*/*</code>, <code>https://*/*</code>): Allows the extension to check whether links and images found on the analyzed page are broken or oversized (see Section 2)</li>
-        <li><code>notifications</code>: Show a local, on-device notification when a new extension version is installed — no data is transmitted to generate this notification</li>
+        <li><code>storage</code>: Remember, on your device only, whether you have seen the "What's new" message after an update</li>
+        <li>Optional host permissions (<code>http://*/*</code>, <code>https://*/*</code>): Only requested if you choose to check external links and images (see Section 2). Not granted at install.</li>
     </ul>
 
     <h2>5. Changes to This Policy</h2>

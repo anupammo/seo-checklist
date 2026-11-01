@@ -766,3 +766,71 @@ p.dev-cred a {
   text-align: center;
   flex-shrink: 0;
 }
+/* v1.5: in-popup messages */
+.popup-error {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #8a1020;
+  background: #fde8eb;
+  border: 1px solid #f5b5be;
+}
+
+.whats-new {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--dark);
+  background: #fff4e6;
+  border: 1px solid #ffd8a8;
+}
+
+.whats-new-text {
+  flex: 1;
+}
+
+.whats-new-dismiss {
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--dark);
+  cursor: pointer;
+}
+
+.secondary-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--primary);
+  background: white;
+  color: var(--dark);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondary-btn:hover {
+  background: #fff4e6;
+}
+
+.permission-note {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #6c757d;
+}
+
+.secondary-btn.hidden,
+.permission-note.hidden,
+.popup-error.hidden,
+.whats-new.hidden {
+  display: none;
+}
