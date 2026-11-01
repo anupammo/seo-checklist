@@ -284,6 +284,11 @@ function setChecklistFilter(filter) {
 }
 
 function initActions() {
+  document.querySelectorAll('.sidebar-promo-logo').forEach(img => {
+    img.addEventListener('error', () => img.classList.add('hidden'));
+    if (img.complete && img.naturalWidth === 0) img.classList.add('hidden');
+  });
+
   $('analyzeBtn').addEventListener('click', startAnalysis);
   $('exportPdfBtn').addEventListener('click', exportReportAsPdf);
   $('copySummaryBtn').addEventListener('click', copySummary);

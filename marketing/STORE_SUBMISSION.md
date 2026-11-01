@@ -35,10 +35,11 @@ One-click on-page SEO audit: score, fix list, Google search preview, broken link
 
 **Category:** Developer Tools (current). **Language:** English.
 
-**Graphics (required before submitting):**
-- At least 1 and up to 5 screenshots at **1280×800** showing the new dashboard (the current ones show the old orange design)
-- Small promo tile **440×280**
-- Optional marquee **1400×560**
+**Graphics (ready in `marketing/store-assets/`, all 24-bit RGB PNG):**
+- 5 screenshots at **1280×800**, uploaded in this order: `screenshot-1-overview.png`, `screenshot-2-search-preview.png`, `screenshot-3-checklist.png`, `screenshot-4-links-images.png`, `screenshot-5-dark-tools.png`. Remove the old orange screenshots.
+- Small promo tile **440×280**: `promo-tile-440x280.png`
+- Marquee **1400×560** (optional): `marquee-1400x560.png`
+- The promo video still shows the old design. Remove it, or replace it with a new screen recording.
 - Keep them truthful: no "#1", "Editor's choice", "Featured" or rating claims in images or text. The store shows the Featured badge on its own.
 
 ## 4. Privacy tab answers
