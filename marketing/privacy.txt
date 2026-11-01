@@ -12,7 +12,7 @@ SEO Checklist does NOT collect, store, or transmit any of the following to us or
 - Browsing history -- only the single active tab is read, and only when you trigger an analysis
 - User activity such as clicks, scrolling, or keystrokes
 
-Analysis results (score, checklist, links, image lists) exist only in the popup's memory while it's open and are discarded when the popup closes. Nothing about the pages you analyze is written to storage, and nothing is sent to any server we operate. The only thing the extension stores is the version number for its one-time "What's new" message (chrome.storage, on your device).
+Analysis results (score, checklist, links, image lists) exist only in the popup's memory while it's open and are discarded when the popup closes. Nothing about the pages you analyze is written to storage, and nothing is sent to any server we operate. The extension keeps a small amount of data on your device only (chrome.storage.local): your score history per page (URL, score, date and which checks failed, up to 10 checks per page and 200 pages) so it can show your progress, a count of analyses for the one-time rating request, and the version number for the one-time "What's new" message. This data never leaves your browser and is deleted when you remove the extension.
 
 2. Outbound Requests (Broken Link & Image Checks)
 --------------------------------------------------
@@ -31,7 +31,7 @@ When you click the "Test This Page In..." buttons (Structured Data, PageSpeed In
 SEO Checklist uses only the permissions required for its features:
 - activeTab: Access the currently active page only after you click the extension
 - scripting: Run analysis code on the active tab to evaluate on-page SEO elements
-- storage: Remember, on your device only, whether you have seen the "What's new" message after an update
+- storage: Keep your score history and settings on your device only (see Section 1)
 - Optional host permissions (http://*/*, https://*/*): Only requested if you choose to check external links and images (see Section 2). Not granted at install.
 
 5. Changes to This Policy

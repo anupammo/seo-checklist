@@ -86,6 +86,8 @@ Ordered by impact on reviews and installs:
 | F10 | **Dark mode + keyboard shortcut** (`Alt+Shift+S` via `commands`) | Small polish that reviewers mention | XS |
 | F11 | **Open-in-side-panel mode** (`sidePanel` API) | Lets the panel stay open while you browse. A modern MV3 feature that stands out in screenshots | M |
 
+**Status:** F1, F2, F3, F5, F6 and F10 are built, plus G1 (review prompt) and score history. F4 is partly built: schema types are now listed. F7, F8, F9 and F11 are still open.
+
 **Suggested v1.5 cut:** all P0 tweaks + F1, F2, F3, F5, F6, F10. F4, F7, F8, F9 and F11 go to v1.5.x/v1.6.
 
 ### P2 – Growth hooks built into the product

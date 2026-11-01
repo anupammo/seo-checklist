@@ -13,6 +13,22 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
 
 ## What’s New in v1.5 (November 2026)
 
+**A new, bigger dashboard (780×590, the largest size Chrome allows for a popup):**
+
+- **Instant audit**: Analysis starts as soon as you open the extension. No extra click.
+- **Overview**: Animated score ring, issue / warning / passed counts, scores per category, **Top fixes** ranked by impact, and page facts.
+- **Score history**: Every re-check shows your progress (for example "▲ +12 since 2 days ago · Fixed: Canonical Tag") with a sparkline. Stored only on your device.
+- **Checklist with how-to-fix**: Every check expands to show what was found, why it matters and how to fix it. Filter by issues, warnings or passed.
+- **Google search preview**: Desktop and mobile previews with pixel-accurate truncation. Edit the title and description live with pixel meters, then copy them as HTML tags.
+- **Social preview + tag audit**: Open Graph / Twitter card preview and which tags are missing.
+- **Headings outline**: H1–H6 tree with counts and skipped levels highlighted. Copy the outline in one click.
+- **Links and Images tabs**: Broken links, links without a name, internal / external lists with copy, image stats, size and attribute issues.
+- **Tools**: Rich Results, PageSpeed, Facebook, LinkedIn, Schema Validator, Wayback Machine, plus quick links to robots.txt, sitemap.xml and a Google `site:` search.
+- **New checks**: Indexability (robots noindex / nofollow), canonical pointing to another URL, page language, social share tags, schema types (JSON-LD and microdata).
+- **Dark mode**, **copy summary** for tickets and emails, and keyboard shortcuts: <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> opens the extension; inside it, <kbd>1</kbd>–<kbd>7</kbd> switch tabs, <kbd>R</kbd> re-checks, <kbd>C</kbd> copies the summary, <kbd>E</kbd> exports the PDF and <kbd>D</kbd> toggles dark mode.
+
+**Fixes and privacy:**
+
 - **No More "Read and Change All Your Data" Warning**: Broad website access and notifications are removed. The extension only reads the tab you analyze, when you click.
 - **Broken Link + Image Checks Without Extra Permissions**: Internal links and same-site images are now checked from the analyzed page itself.
 - **Optional External Checks**: Click "Check external links and images" to also check links and images on other domains. Chrome asks once; you can remove the access anytime.
@@ -41,6 +57,13 @@ SEO Checklist is a modern, privacy-friendly Chrome extension that provides insta
 
 ### v1.5 (November 2026)
 
+- New dashboard UI (sidebar with Overview, Checklist, Search & Social, Headings, Links, Images, Tools), dark mode and keyboard shortcuts.
+- Auto-analysis on open, score history with progress messages, Top fixes, and fix guidance for every check.
+- Editable Google search preview (desktop / mobile), social tag audit, headings outline, copy actions.
+- New checks: indexability, canonical target, page language, social share tags; schema check now reads JSON-LD types and microdata.
+- Score now counts only instant checks, so it doesn't change while broken-link and image checks are still running.
+- Fixed social preview showing page text as HTML (now escaped).
+- One-time rating request after the 3rd analysis (never repeats after you rate or dismiss twice).
 - Removed `host_permissions` and `notifications`; added `storage` (for the one-time "What's new" banner) and optional host permissions for external checks.
 - Moved broken-link and image-size checks into the analyzed page so they work with `activeTab` only.
 - Added opt-in external link and image checks.

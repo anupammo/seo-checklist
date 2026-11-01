@@ -25,7 +25,7 @@
         <li>Browsing history — only the single active tab is read, and only when you trigger an analysis</li>
         <li>User activity such as clicks, scrolling, or keystrokes</li>
     </ul>
-    <p>Analysis results (score, checklist, links, image lists) exist only in the popup's memory while it's open and are discarded when the popup closes. Nothing about the pages you analyze is written to storage, and nothing is sent to any server we operate. The only thing the extension stores is the version number for its one-time "What's new" message (<code>chrome.storage</code>, on your device).</p>
+    <p>Analysis results (score, checklist, links, image lists) exist only in the popup's memory while it's open and are discarded when the popup closes. Nothing about the pages you analyze is written to storage, and nothing is sent to any server we operate. The extension keeps a small amount of data on your device only (<code>chrome.storage.local</code>): your score history per page (URL, score, date and which checks failed, up to 10 checks per page and 200 pages) so it can show your progress, a count of analyses for the one-time rating request, and the version number for the one-time "What's new" message. This data never leaves your browser and is deleted when you remove the extension.</p>
 
     <h2>2. Outbound Requests (Broken Link &amp; Image Checks)</h2>
     <p>To check for broken internal links and oversized images, SEO Checklist makes HEAD/GET requests from <strong>the page you are analyzing</strong> to the link and image URLs on that page's own site — the same URLs your browser would request if you clicked them yourself. This needs no extra permission.</p>
@@ -40,7 +40,7 @@
     <ul>
         <li><code>activeTab</code>: Access the currently active page only after you click the extension</li>
         <li><code>scripting</code>: Run analysis code on the active tab to evaluate on-page SEO elements</li>
-        <li><code>storage</code>: Remember, on your device only, whether you have seen the "What's new" message after an update</li>
+        <li><code>storage</code>: Keep your score history and settings on your device only (see Section 1)</li>
         <li>Optional host permissions (<code>http://*/*</code>, <code>https://*/*</code>): Only requested if you choose to check external links and images (see Section 2). Not granted at install.</li>
     </ul>
 

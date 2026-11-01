@@ -14,8 +14,6 @@ const reportState = {
   }
 };
 
-let socialPreviewEl = null;
-
 // Bumped on every analysis so late results from an earlier run are ignored.
 let analysisRunId = 0;
 
@@ -78,192 +76,173 @@ function isInjectablePageUrl(url) {
   return url.startsWith('http://') || url.startsWith('https://');
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-  const analyzeBtn = document.getElementById('analyzeBtn');
-  const exportPdfBtn = document.getElementById('exportPdfBtn');
-  const loading = document.getElementById('loading');
-  const resultsContainer = document.getElementById('resultsContainer');
-  const detailedResults = document.getElementById('detailedResults');
-  const seoScore = document.getElementById('seoScore');
-  const scoreCard = document.querySelector('.score-card');
-  const scoreFeedback = document.getElementById('scoreFeedback');
-  socialPreviewEl = document.getElementById('socialPreview');
+const STORE_URL = 'https://chromewebstore.google.com/detail/jgigdhidhmgikfnccdnehcpgoggmagfh';
+const STORE_REVIEW_URL = `${STORE_URL}/reviews`;
+const REVIEW_PROMPT_AFTER_ANALYSES = 3;
+const REVIEW_PROMPT_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000;
+const HISTORY_PER_URL = 10;
+const HISTORY_MAX_URLS = 200;
+const HISTORY_MERGE_MS = 10 * 60 * 1000;
+const THEME_STORAGE_KEY = 'seoChecklistTheme';
+const SCORE_RING_LENGTH = 2 * Math.PI * 52;
 
-  // Test Tools Button Handlers
-  const structuredDataBtn = document.getElementById('structuredDataBtn');
-  const pageSpeedBtn = document.getElementById('pageSpeedBtn');
-  const facebookDebugBtn = document.getElementById('facebookDebugBtn');
-  const linkedinInspectorBtn = document.getElementById('linkedinInspectorBtn');
+const VIEWS = ['overview', 'checklist', 'serp', 'headings', 'links', 'images', 'tools'];
 
-  structuredDataBtn.addEventListener('click', function() {
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      const currentUrl = encodeURIComponent(tabs[0].url);
-      const testUrl = `https://search.google.com/test/rich-results?url=${currentUrl}`;
-      chrome.tabs.create({url: testUrl});
-    });
-  });
+// Which checklist items feed each sidebar badge.
+const VIEW_CHECKS = {
+  serp: ['titleTagStatus', 'metaDescStatus', 'socialTagsStatus'],
+  headings: ['headingsStatus', 'headingOrderStatus'],
+  links: ['brokenLinksStatus', 'linkNamesStatus', 'internalLinksStatus'],
+  images: ['imageAltsStatus', 'imageDimensionsStatus', 'imageOptimizationStatus']
+};
 
-  pageSpeedBtn.addEventListener('click', function() {
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      const currentUrl = encodeURIComponent(tabs[0].url);
-      const testUrl = `https://pagespeed.web.dev/report?url=${currentUrl}`;
-      chrome.tabs.create({url: testUrl});
-    });
-  });
+const TOOL_URLS = {
+  richResults: url => `https://search.google.com/test/rich-results?url=${encodeURIComponent(url)}`,
+  pageSpeed: url => `https://pagespeed.web.dev/report?url=${encodeURIComponent(url)}`,
+  facebook: url => `https://developers.facebook.com/tools/debug/?q=${encodeURIComponent(url)}`,
+  linkedin: url => `https://www.linkedin.com/post-inspector/inspect/${encodeURIComponent(url)}`,
+  schemaValidator: url => `https://validator.schema.org/#url=${encodeURIComponent(url)}`,
+  wayback: url => `https://web.archive.org/web/*/${url}`,
+  robots: url => new URL('/robots.txt', url).href,
+  sitemap: url => new URL('/sitemap.xml', url).href,
+  siteSearch: url => `https://www.google.com/search?q=${encodeURIComponent(`site:${new URL(url).hostname}`)}`
+};
 
-  facebookDebugBtn.addEventListener('click', function() {
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      const currentUrl = encodeURIComponent(tabs[0].url);
-      const testUrl = `https://developers.facebook.com/tools/debug/?q=${currentUrl}`;
-      chrome.tabs.create({url: testUrl});
-    });
-  });
+let currentTab = null;
+let toastTimer = null;
 
-  linkedinInspectorBtn.addEventListener('click', function() {
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      const currentUrl = encodeURIComponent(tabs[0].url);
-      const testUrl = `https://www.linkedin.com/post-inspector/inspect/${currentUrl}`;
-      chrome.tabs.create({url: testUrl});
-    });
-  });
+const serpState = {
+  device: 'desktop',
+  title: '',
+  description: '',
+  original: { title: '', description: '' }
+};
 
-  initWhatsNewBanner();
+/* ---------- Small helpers ---------- */
 
-  const checkExternalBtn = document.getElementById('checkExternalLinksBtn');
-  if (checkExternalBtn) {
-    checkExternalBtn.addEventListener('click', function() {
-      // permissions.request must run directly inside the click handler.
-      chrome.permissions.request({ origins: HOST_ACCESS_ORIGINS }, (granted) => {
-        if (chrome.runtime.lastError || !granted) {
-          showPopupError('Permission not granted. External links and images were not checked.');
-          return;
-        }
-        clearPopupError();
-        checkExternalBtn.classList.add('hidden');
-        runExternalChecks(analysisRunId);
-      });
-    });
-  }
+function $(id) {
+  return document.getElementById(id);
+}
 
-  analyzeBtn.addEventListener('click', function() {
-    analysisRunId += 1;
-    const runId = analysisRunId;
-    clearPopupError();
-    setExternalCheckButtonVisible(false);
-    resetReportState();
-    setExportButtonState(false);
-    loading.classList.remove('hidden');
-    resultsContainer.classList.add('hidden');
-    detailedResults.innerHTML = '';
-    seoScore.textContent = '0%';
-    updateSpeedometer(scoreCard, 0);
-    scoreFeedback.textContent = 'Initializing analysis...';
-
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      const tab = tabs[0];
-      reportState.pageUrl = tab.url || '';
-      if (!isInjectablePageUrl(reportState.pageUrl)) {
-        showPopupError('This page cannot be analyzed. Open a regular website (http or https) and try again.');
-        loading.classList.add('hidden');
-        return;
-      }
-      if (!chrome.scripting) {
-        showPopupError('Page analysis is not available in this browser. Please update Chrome and try again.');
-        loading.classList.add('hidden');
-        return;
-      }
-      chrome.scripting.executeScript({
-        target: {tabId: tab.id},
-        func: () => document.documentElement.outerHTML
-      }, (results) => {
-        if (chrome.runtime.lastError || !results || !results[0] || !results[0].result) {
-          showPopupError('Unable to read this page. Refresh the page and try again.');
-          loading.classList.add('hidden');
-          return;
-        }
-        try {
-          const html = results[0].result;
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(html, 'text/html');
-          const data = getPageSEOData(doc, tab.url);
-          displayResults(data);
-          resultsContainer.classList.remove('hidden');
-          runResourceChecks(tab.id, data, runId);
-        } catch (e) {
-          showPopupError('Error analyzing this page: ' + e.message);
-        } finally {
-          loading.classList.add('hidden');
-        }
-      });
-    });
-  });
-
-  if (exportPdfBtn) {
-    exportPdfBtn.addEventListener('click', exportReportAsPdf);
-  }
-
-  // Load social preview on popup open
-  chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-    const tab = tabs[0];
-    if (!tab || !isInjectablePageUrl(tab.url || '')) {
-      displaySocialPreview(null);
+function storageGet(keys) {
+  return new Promise(resolve => {
+    if (!chrome.storage || !chrome.storage.local) {
+      resolve({});
       return;
     }
+    chrome.storage.local.get(keys, items => {
+      resolve(chrome.runtime.lastError ? {} : (items || {}));
+    });
+  });
+}
 
-    chrome.scripting.executeScript({
-      target: {tabId: tab.id},
-      func: () => {
-        const title = document.querySelector('meta[property="og:title"]')?.content || document.querySelector('meta[name="twitter:title"]')?.content || document.title || '';
-        const description = document.querySelector('meta[property="og:description"]')?.content || document.querySelector('meta[name="twitter:description"]')?.content || document.querySelector('meta[name="description"]')?.content || '';
-        const image = document.querySelector('meta[property="og:image"]')?.content || document.querySelector('meta[name="twitter:image"]')?.content || '';
-        const url = document.querySelector('meta[property="og:url"]')?.content || window.location.href;
-        return { title, description, image, url };
-      }
-    }, (results) => {
-      if (chrome.runtime.lastError) {
-        displaySocialPreview(null);
-        return;
-      }
+function storageSet(items) {
+  return new Promise(resolve => {
+    if (!chrome.storage || !chrome.storage.local) {
+      resolve();
+      return;
+    }
+    chrome.storage.local.set(items, () => resolve());
+  });
+}
 
-      if (results && results[0] && results[0].result) {
-        const data = results[0].result;
-        displaySocialPreview(data);
-      } else {
-        displaySocialPreview(null);
-      }
+function showToast(message) {
+  const toast = $('toast');
+  if (!toast) return;
+  toast.textContent = message;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 1600);
+}
+
+async function copyText(text, message) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (error) {
+    const area = document.createElement('textarea');
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand('copy');
+    area.remove();
+  }
+  showToast(message || 'Copied');
+}
+
+function timeAgo(timestamp) {
+  const seconds = Math.max(1, Math.round((Date.now() - timestamp) / 1000));
+  const units = [['year', 31536000], ['month', 2592000], ['day', 86400], ['hour', 3600], ['minute', 60]];
+  for (const [name, size] of units) {
+    const value = Math.floor(seconds / size);
+    if (value >= 1) return `${value} ${name}${value > 1 ? 's' : ''} ago`;
+  }
+  return 'just now';
+}
+
+function getCheckState(check) {
+  if (check.pending) return 'pending';
+  if (check.good) return 'good';
+  if (check.warning) return 'warning';
+  return 'bad';
+}
+
+/* ---------- Startup ---------- */
+
+document.addEventListener('DOMContentLoaded', function() {
+  initTheme();
+  initNavigation();
+  initActions();
+  initKeyboard();
+  initSerpEditor();
+  initWhatsNewBanner();
+
+  chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+    currentTab = tabs && tabs[0] ? tabs[0] : null;
+    renderPageChip(currentTab ? currentTab.title : '', currentTab ? currentTab.url : '');
+
+    if (!currentTab || !isInjectablePageUrl(currentTab.url || '')) {
+      showRestrictedState();
+      return;
+    }
+    startAnalysis();
+  });
+});
+
+function initTheme() {
+  let stored = null;
+  try {
+    stored = localStorage.getItem(THEME_STORAGE_KEY);
+  } catch (error) {
+    stored = null;
+  }
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.dataset.theme = stored || (prefersDark ? 'dark' : 'light');
+}
+
+function toggleTheme() {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, next);
+  } catch (error) {
+    // Theme still applies for this session.
+  }
+}
+
+function initNavigation() {
+  document.querySelectorAll('.nav-item[data-view]').forEach(item => {
+    item.addEventListener('click', () => showView(item.dataset.view));
+  });
+
+  document.querySelectorAll('[data-goto-filter]').forEach(button => {
+    button.addEventListener('click', () => {
+      setChecklistFilter(button.dataset.gotoFilter);
+      showView('checklist');
     });
   });
 
-  // Accordion UI for categories
-  document.querySelectorAll('.category-header').forEach(header => {
-    header.addEventListener('click', function() {
-      const cat = header.parentElement;
-      cat.classList.toggle('open');
-    });
-  });
-
-  document.querySelectorAll('.analysis-toggle').forEach(toggle => {
-    toggle.addEventListener('click', function() {
-      const targetId = toggle.getAttribute('data-target');
-      const content = document.getElementById(targetId);
-      if (!content) return;
-
-      const currentlyExpanded = toggle.getAttribute('aria-expanded') === 'true';
-      toggle.setAttribute('aria-expanded', currentlyExpanded ? 'false' : 'true');
-      content.classList.toggle('hidden', currentlyExpanded);
-    });
-  });
-
-  document.querySelectorAll('.detailed-toggle').forEach(toggle => {
-    toggle.addEventListener('click', function() {
-      const targetId = toggle.getAttribute('data-target');
-      const content = document.getElementById(targetId);
-      if (!content) return;
-
-      const currentlyExpanded = toggle.getAttribute('aria-expanded') === 'true';
-      toggle.setAttribute('aria-expanded', currentlyExpanded ? 'false' : 'true');
-      content.classList.toggle('hidden', currentlyExpanded);
-    });
+  document.querySelectorAll('#view-checklist .seg[data-filter]').forEach(button => {
+    button.addEventListener('click', () => setChecklistFilter(button.dataset.filter));
   });
 
   document.querySelectorAll('.links-tab').forEach(tab => {
@@ -282,31 +261,855 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
   });
-});
+}
 
-function displaySocialPreview(data) {
-  if (!socialPreviewEl) {
+function showView(view) {
+  if (!VIEWS.includes(view)) return;
+  document.querySelectorAll('.nav-item[data-view]').forEach(item => {
+    item.classList.toggle('active', item.dataset.view === view);
+  });
+  document.querySelectorAll('.view').forEach(panel => {
+    panel.classList.toggle('active', panel.dataset.viewPanel === view);
+  });
+  const main = $('main');
+  if (main) main.scrollTop = 0;
+}
+
+function setChecklistFilter(filter) {
+  const list = $('checklist');
+  if (list) list.dataset.filter = filter;
+  document.querySelectorAll('#view-checklist .seg[data-filter]').forEach(button => {
+    button.classList.toggle('active', button.dataset.filter === filter);
+  });
+}
+
+function initActions() {
+  $('analyzeBtn').addEventListener('click', startAnalysis);
+  $('exportPdfBtn').addEventListener('click', exportReportAsPdf);
+  $('copySummaryBtn').addEventListener('click', copySummary);
+  $('themeToggleBtn').addEventListener('click', toggleTheme);
+
+  document.querySelectorAll('[data-tool]').forEach(button => {
+    button.addEventListener('click', () => openTool(button.dataset.tool));
+  });
+
+  document.querySelectorAll('[data-copy]').forEach(button => {
+    button.addEventListener('click', () => copyList(button.dataset.copy));
+  });
+
+  const checkExternalBtn = $('checkExternalLinksBtn');
+  checkExternalBtn.addEventListener('click', function() {
+    // permissions.request must run directly inside the click handler.
+    chrome.permissions.request({ origins: HOST_ACCESS_ORIGINS }, (granted) => {
+      if (chrome.runtime.lastError || !granted) {
+        showPopupError('Permission not granted. External links and images were not checked.');
+        return;
+      }
+      clearPopupError();
+      checkExternalBtn.classList.add('hidden');
+      runExternalChecks(analysisRunId);
+    });
+  });
+
+  $('reviewRateBtn').addEventListener('click', () => {
+    chrome.tabs.create({ url: STORE_REVIEW_URL });
+    setReviewPromptState('rated');
+  });
+  $('reviewLaterBtn').addEventListener('click', async () => {
+    const { reviewPrompt } = await storageGet('reviewPrompt');
+    setReviewPromptState(reviewPrompt && reviewPrompt.state === 'later' ? 'never' : 'later');
+  });
+}
+
+function initKeyboard() {
+  document.addEventListener('keydown', event => {
+    const target = event.target;
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+
+    const key = event.key.toLowerCase();
+    const index = Number.parseInt(key, 10);
+    if (index >= 1 && index <= VIEWS.length && !document.querySelector('.app.is-restricted')) {
+      showView(VIEWS[index - 1]);
+    } else if (key === 'r') {
+      startAnalysis();
+    } else if (key === 'c' && !$('copySummaryBtn').disabled) {
+      copySummary();
+    } else if (key === 'e' && !$('exportPdfBtn').disabled) {
+      exportReportAsPdf();
+    } else if (key === 'd') {
+      toggleTheme();
+    } else {
+      return;
+    }
+    event.preventDefault();
+  });
+}
+
+function openTool(tool) {
+  const build = TOOL_URLS[tool];
+  if (!build || !currentTab || !isInjectablePageUrl(currentTab.url || '')) return;
+  try {
+    chrome.tabs.create({ url: build(currentTab.url) });
+  } catch (error) {
+    showPopupError('Could not open this tool for the current page.');
+  }
+}
+
+function renderPageChip(title, url, faviconUrl) {
+  let host = '';
+  try {
+    host = url ? new URL(url).hostname : '';
+  } catch (error) {
+    host = '';
+  }
+  $('pageTitle').textContent = title || host || 'Current page';
+  $('pageHost').textContent = host || (url || '-');
+  $('pageChip').title = url || '';
+
+  const favicon = $('pageFavicon');
+  if (faviconUrl) {
+    favicon.onerror = () => favicon.classList.add('hidden');
+    favicon.src = faviconUrl;
+    favicon.classList.remove('hidden');
+  }
+}
+
+function showRestrictedState() {
+  const app = $('app');
+  app.classList.remove('is-loading');
+  app.classList.add('is-restricted');
+  $('restrictedState').classList.remove('hidden');
+  $('analyzeBtn').disabled = true;
+  document.querySelectorAll('.nav-item, [data-tool]').forEach(el => {
+    el.disabled = true;
+  });
+}
+
+/* ---------- Analysis ---------- */
+
+function startAnalysis() {
+  if (!currentTab || !isInjectablePageUrl(currentTab.url || '')) {
+    showPopupError('This page cannot be analyzed. Open a regular website (http or https) and try again.');
+    return;
+  }
+  if (!chrome.scripting) {
+    showPopupError('Page analysis is not available in this browser. Please update Chrome and try again.');
     return;
   }
 
-  if (data && (data.title || data.description || data.image)) {
-    socialPreviewEl.innerHTML = `
-      <div class="social-preview-card">
-        ${data.image ? `<img src="${data.image}" alt="Social Preview Image" onerror="this.parentElement.innerHTML='<div class=\\'image-error\\'>Image not available</div>'">` : '<div class="image-error">No image</div>'}
-        <div class="social-preview-content">
-          <h4>${data.title || 'No Title'}</h4>
-          <p>${data.description || 'No Description'}</p>
-          <small>${data.url}</small>
-        </div>
-      </div>
-    `;
+  analysisRunId += 1;
+  const runId = analysisRunId;
+  const tab = currentTab;
+
+  clearPopupError();
+  setExternalCheckButtonVisible(false);
+  resetReportState();
+  setExportButtonState(false);
+  $('copySummaryBtn').disabled = true;
+  $('app').classList.add('is-loading');
+  reportState.pageUrl = tab.url || '';
+
+  chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: () => document.documentElement.outerHTML
+  }, (results) => {
+    if (runId !== analysisRunId) return;
+    $('app').classList.remove('is-loading');
+
+    if (chrome.runtime.lastError || !results || !results[0] || !results[0].result) {
+      showPopupError('Unable to read this page. Refresh the page and try again.');
+      return;
+    }
+
+    try {
+      const doc = new DOMParser().parseFromString(results[0].result, 'text/html');
+      const data = getPageSEOData(doc, tab.url);
+      displayResults(data);
+      runResourceChecks(tab.id, data, runId);
+      afterAnalysis(data, runId);
+    } catch (e) {
+      showPopupError('Error analyzing this page: ' + e.message);
+    }
+  });
+}
+
+async function afterAnalysis(data, runId) {
+  const checks = getChecks(data).filter(check => !check.async);
+  const failing = checks.filter(check => !check.good).map(check => check.id);
+  const history = await recordHistory(reportState.pageUrl, reportState.scorePercent, failing);
+  if (runId !== analysisRunId) return;
+  renderHistory(history, failing, checks);
+  maybeShowReviewPrompt();
+}
+
+/* ---------- Results rendering ---------- */
+
+function displayResults(data) {
+  const checks = getChecks(data);
+  const scored = checks.filter(check => !check.async);
+
+  let score = 0;
+  scored.forEach(check => {
+    if (check.good) score += 1;
+    else if (check.warning) score += 0.5;
+  });
+  const percent = Math.round((score / scored.length) * 100);
+
+  let feedback = '';
+  if (percent === 100) {
+    feedback = 'Excellent! Your page is well-optimized. 🎉';
+  } else if (percent >= 80) {
+    feedback = 'Great! Just a few improvements needed.';
+  } else if (percent >= 60) {
+    feedback = 'Good, but there are several areas to improve.';
   } else {
-    socialPreviewEl.innerHTML = `
-      <div class="social-preview-placeholder">
-        No Social Preview Available
-      </div>
-    `;
+    feedback = 'Needs significant SEO improvements.';
   }
+
+  reportState.seoData = data;
+  reportState.generatedAt = new Date().toISOString();
+  reportState.scorePercent = percent;
+  reportState.feedback = feedback;
+  setExportButtonState(true);
+  $('copySummaryBtn').disabled = false;
+
+  renderPageChip(data.title.text || (currentTab && currentTab.title), reportState.pageUrl, data.favicon);
+  renderScore(percent, feedback);
+  renderCategoryBars(scored);
+  renderChecklist(checks);
+  renderFacts(data);
+  renderSerp(data);
+  renderSocial(data);
+  renderHeadings(data);
+
+  setBrokenLinksStatus('Checking...', 'warning', 'Checking links for errors');
+  resetBrokenLinksUI(data.links.internalUrls.length, data.links.externalCount);
+  resetImageOptimizationUI(data.images.auditItems.length);
+  renderLinksOverview(data.links.internalUrls, data.links.externalUrls);
+  renderUnnamedLinks(data.links.unnamedLinks);
+  renderImageAttributeIssues(data.images.attributeIssueItems);
+  renderImageStats(data);
+
+  refreshDerivedUI();
+}
+
+function getScoreColor(percent) {
+  if (percent >= 80) return 'var(--good)';
+  if (percent >= 50) return 'var(--warn)';
+  return 'var(--bad)';
+}
+
+function renderScore(percent, feedback) {
+  const card = document.querySelector('.score-card');
+  updateSpeedometer(card, percent);
+  $('scoreFeedback').textContent = feedback;
+
+  const valueEl = $('seoScore');
+  const start = performance.now();
+  const duration = 700;
+  function tick(now) {
+    const progress = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    valueEl.textContent = String(Math.round(percent * eased));
+    if (progress < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+// The circular gauge replaces the old semicircle speedometer.
+function updateSpeedometer(card, percent) {
+  if (!card) return;
+  const clamped = Math.max(0, Math.min(100, percent));
+  card.style.setProperty('--score-color', getScoreColor(clamped));
+  const ring = card.querySelector('.score-ring-value');
+  if (ring) {
+    ring.style.strokeDasharray = String(SCORE_RING_LENGTH);
+    // Start empty, then animate to the score on the next frame.
+    ring.style.strokeDashoffset = String(SCORE_RING_LENGTH);
+    requestAnimationFrame(() => {
+      ring.style.strokeDashoffset = String(SCORE_RING_LENGTH * (1 - clamped / 100));
+    });
+  }
+}
+
+function renderCategoryBars(scoredChecks) {
+  const container = $('categoryBars');
+  container.innerHTML = '';
+  CHECK_CATEGORIES.forEach(category => {
+    const items = scoredChecks.filter(check => (CHECK_META[check.id] || {}).category === category.id);
+    if (items.length === 0) return;
+    const points = items.reduce((sum, check) => sum + (check.good ? 1 : (check.warning ? 0.5 : 0)), 0);
+    const percent = Math.round((points / items.length) * 100);
+
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `
+      <div class="cat-bar-label"><span>${escapeHtml(category.label)}</span><strong>${percent}%</strong></div>
+      <div class="bar"><span></span></div>`;
+    const fill = wrap.querySelector('.bar > span');
+    fill.style.background = getScoreColor(percent);
+    container.appendChild(wrap);
+    requestAnimationFrame(() => {
+      fill.style.width = `${percent}%`;
+    });
+  });
+}
+
+function renderChecklist(checks) {
+  const container = $('checklist');
+  container.innerHTML = '';
+
+  CHECK_CATEGORIES.forEach(category => {
+    const items = checks.filter(check => (CHECK_META[check.id] || {}).category === category.id);
+    if (items.length === 0) return;
+
+    const group = document.createElement('div');
+    group.className = 'check-group';
+    group.innerHTML = `<div class="check-group-title"><span>${escapeHtml(category.label)}</span></div><div class="check-rows"></div>`;
+    const rows = group.querySelector('.check-rows');
+
+    items.forEach(check => {
+      const meta = CHECK_META[check.id] || {};
+      const state = getCheckState(check);
+      const row = document.createElement('details');
+      row.className = 'check-row';
+      row.dataset.state = state;
+      row.dataset.checkId = check.id;
+      row.innerHTML = `
+        <summary>
+          <span class="check-icon" aria-hidden="true"></span>
+          <span class="check-label">${escapeHtml(check.label)}</span>
+          <span id="${check.id}" class="status ${state === 'pending' ? 'warning' : state}">${escapeHtml(check.text)}</span>
+          <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </summary>
+        <div class="check-detail">
+          <div class="detail-current">${escapeHtml(check.tooltip || '')}</div>
+          ${meta.why ? `<div><strong>Why it matters:</strong> ${escapeHtml(meta.why)}</div>` : ''}
+          ${meta.fix ? `<div><strong>How to fix:</strong> ${escapeHtml(meta.fix)}</div>` : ''}
+        </div>`;
+      rows.appendChild(row);
+    });
+
+    container.appendChild(group);
+  });
+}
+
+// Keeps a checklist row, its pill and the sidebar badges in sync after async checks.
+function updateCheckRow(id, text, statusClass, tooltip) {
+  const el = $(id);
+  if (!el) return;
+  el.textContent = text;
+  el.className = `status ${statusClass}`;
+  const row = el.closest('.check-row');
+  if (row) {
+    row.dataset.state = /\.\.\.$/.test(text) ? 'pending' : statusClass;
+    const detail = row.querySelector('.detail-current');
+    if (detail && tooltip) detail.textContent = tooltip;
+  }
+}
+
+function refreshDerivedUI() {
+  if (!reportState.seoData) return;
+  const checks = getChecks(reportState.seoData);
+  const states = checks.map(check => ({ check, state: getCheckState(check) }));
+
+  const count = state => states.filter(item => item.state === state).length;
+  const bad = count('bad');
+  const warning = count('warning');
+  $('countBad').textContent = bad;
+  $('countWarning').textContent = warning;
+  $('countGood').textContent = count('good');
+
+  setNavBadge('checklist', bad ? bad : warning, bad ? 'bad' : (warning ? 'warning' : 'good'));
+  Object.keys(VIEW_CHECKS).forEach(view => {
+    const relevant = states.filter(item => VIEW_CHECKS[view].includes(item.check.id));
+    const viewBad = relevant.filter(item => item.state === 'bad').length;
+    const viewWarn = relevant.filter(item => item.state === 'warning').length;
+    setNavBadge(view, viewBad + viewWarn, viewBad ? 'bad' : (viewWarn ? 'warning' : 'good'));
+  });
+
+  renderTopFixes(states);
+}
+
+function setNavBadge(view, value, tone) {
+  const badge = $(`navBadge-${view}`);
+  if (!badge) return;
+  badge.className = `nav-badge ${tone}`;
+  badge.textContent = value ? String(value) : '✓';
+}
+
+function renderTopFixes(states) {
+  const list = $('topFixes');
+  list.innerHTML = '';
+
+  const fixes = states
+    .filter(item => item.state === 'bad' || item.state === 'warning')
+    .sort((a, b) => {
+      if (a.state !== b.state) return a.state === 'bad' ? -1 : 1;
+      return ((CHECK_META[b.check.id] || {}).impact || 1) - ((CHECK_META[a.check.id] || {}).impact || 1);
+    })
+    .slice(0, 5);
+
+  if (fixes.length === 0) {
+    list.innerHTML = '<li class="all-good">Nothing to fix. Every check passed! 🎉</li>';
+    return;
+  }
+
+  fixes.forEach(({ check, state }) => {
+    const meta = CHECK_META[check.id] || {};
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <button type="button" class="fix-item">
+        <span class="fix-dot ${state}"></span>
+        <span class="fix-body">
+          <span class="fix-title">${escapeHtml(check.label)} <span>· ${escapeHtml(check.text)}</span></span>
+          <span class="fix-text">${escapeHtml(meta.fix || check.tooltip || '')}</span>
+        </span>
+      </button>`;
+    li.querySelector('button').addEventListener('click', () => goToCheck(check.id));
+    list.appendChild(li);
+  });
+}
+
+function goToCheck(id) {
+  setChecklistFilter('all');
+  showView('checklist');
+  const el = $(id);
+  const row = el ? el.closest('.check-row') : null;
+  if (!row) return;
+  row.open = true;
+  row.scrollIntoView({ block: 'center' });
+  row.classList.remove('flash');
+  void row.offsetWidth;
+  row.classList.add('flash');
+}
+
+function renderFacts(data) {
+  const rows = [];
+  const add = (key, valueHtml) => rows.push(`<div class="fact-key">${key}</div><div class="fact-value">${valueHtml}</div>`);
+  const tag = (text, tone) => `<span class="tag ${tone || ''}">${escapeHtml(text)}</span>`;
+
+  add('Title', escapeHtml(data.title.text) || tag('Not found', 'bad'));
+  add('Description', escapeHtml(data.metaDescription.text) || tag('Not found', 'bad'));
+  add('H1', escapeHtml(data.headings.firstH1) || tag('Not found', 'bad'));
+  add('Content', `${data.content.wordCount} words`);
+  add('Canonical', data.canonical
+    ? (data.canonicalIsSelf ? tag('Self', 'good') : `${tag('Other URL', 'warning')} ${escapeHtml(data.canonicalUrl || '')}`)
+    : tag('Missing', 'bad'));
+  add('Robots', data.robots.content ? escapeHtml(data.robots.content) : `${tag('Default', 'good')} index, follow`);
+  add('Language', data.lang ? escapeHtml(data.lang) : tag('Not set', 'warning'));
+  add('Schema', data.schemaTypes.length ? escapeHtml(data.schemaTypes.join(', ')) : tag('None', 'bad'));
+  add('Analytics', data.gaTag ? `${tag('Yes', 'good')} ${escapeHtml(data.analyticsIds.join(', '))}` : tag('No'));
+  add('Images', `${data.images.total} total · ${data.images.withAlt} with alt`);
+  add('Links', `${data.links.internal} internal · ${data.links.externalCount} external`);
+
+  $('detailedResults').innerHTML = rows.join('');
+}
+
+/* ---------- Search preview ---------- */
+
+function truncateToWidth(text, maxPx, font) {
+  if (measureTextWidth(text, font) <= maxPx) return text;
+  let low = 0;
+  let high = text.length;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    if (measureTextWidth(`${text.slice(0, mid)} ...`, font) <= maxPx) low = mid;
+    else high = mid - 1;
+  }
+  return `${text.slice(0, low).trimEnd()} ...`;
+}
+
+function initSerpEditor() {
+  const titleInput = $('serpTitleInput');
+  const descInput = $('serpDescInput');
+
+  titleInput.addEventListener('input', () => {
+    serpState.title = titleInput.value;
+    renderSerpPreview();
+  });
+  descInput.addEventListener('input', () => {
+    serpState.description = descInput.value;
+    renderSerpPreview();
+  });
+
+  $('serpResetBtn').addEventListener('click', () => {
+    serpState.title = serpState.original.title;
+    serpState.description = serpState.original.description;
+    titleInput.value = serpState.title;
+    descInput.value = serpState.description;
+    renderSerpPreview();
+  });
+
+  $('serpCopyBtn').addEventListener('click', () => {
+    copyText(`<title>${serpState.title}</title>\n<meta name="description" content="${serpState.description.replace(/"/g, '&quot;')}">`, 'Copied as HTML tags');
+  });
+
+  document.querySelectorAll('[data-device]').forEach(button => {
+    button.addEventListener('click', () => {
+      serpState.device = button.dataset.device;
+      document.querySelectorAll('[data-device]').forEach(other => {
+        other.classList.toggle('active', other === button);
+      });
+      renderSerpPreview();
+    });
+  });
+}
+
+function renderSerp(data) {
+  serpState.original = { title: data.title.text, description: data.metaDescription.text };
+  serpState.title = data.title.text;
+  serpState.description = data.metaDescription.text;
+  $('serpTitleInput').value = serpState.title;
+  $('serpDescInput').value = serpState.description;
+
+  let url;
+  try {
+    url = new URL(reportState.pageUrl);
+  } catch (error) {
+    url = null;
+  }
+  const siteName = data.social.siteName || (url ? url.hostname.replace(/^www\./, '') : '');
+  const crumbs = url ? [url.origin].concat(url.pathname.split('/').filter(Boolean).slice(0, 3)).join(' › ') : '';
+  $('serpSiteName').textContent = siteName;
+  $('serpUrl').textContent = crumbs;
+
+  const faviconHolder = $('serpFavicon');
+  faviconHolder.textContent = siteName ? siteName.charAt(0).toUpperCase() : '';
+  if (data.favicon) {
+    const img = document.createElement('img');
+    img.alt = '';
+    img.addEventListener('load', () => {
+      faviconHolder.textContent = '';
+      faviconHolder.appendChild(img);
+    });
+    img.src = data.favicon;
+  }
+
+  renderSerpPreview();
+}
+
+function updateMeter(fillId, textId, widthPx, maxPx, chars, minChars) {
+  const fill = $(fillId);
+  const text = $(textId);
+  const ratio = maxPx ? widthPx / maxPx : 0;
+  fill.style.width = `${Math.min(100, Math.round(ratio * 100))}%`;
+  let tone = 'good';
+  if (widthPx > maxPx || chars === 0) tone = 'bad';
+  else if (chars < minChars) tone = 'warning';
+  fill.className = `meter-fill ${tone === 'good' ? '' : tone}`;
+  text.textContent = `${chars} chars · ${widthPx}px / ${maxPx}px`;
+  text.classList.toggle('over', widthPx > maxPx);
+}
+
+function renderSerpPreview() {
+  const preview = $('serpPreview');
+  const isDesktop = serpState.device === 'desktop';
+  preview.className = `serp ${isDesktop ? 'serp-desktop' : 'serp-mobile'}`;
+
+  const title = serpState.title.trim() || 'Untitled page';
+  const description = serpState.description.trim();
+  $('serpTitle').textContent = isDesktop ? truncateToWidth(title, TITLE_MAX_PX, '20px Arial') : title;
+
+  const descEl = $('serpDesc');
+  if (description) {
+    descEl.textContent = isDesktop ? truncateToWidth(description, DESCRIPTION_MAX_PX, '14px Arial') : description;
+    descEl.classList.remove('missing');
+  } else {
+    descEl.textContent = 'No meta description. Google will pick a snippet from the page text, which may not sell your page well.';
+    descEl.classList.add('missing');
+  }
+
+  updateMeter('titleMeter', 'titleMeterText', measureTextWidth(serpState.title, '20px Arial'), TITLE_MAX_PX, serpState.title.length, TITLE_MIN_CHARS);
+  updateMeter('descMeter', 'descMeterText', measureTextWidth(serpState.description, '14px Arial'), DESCRIPTION_MAX_PX, serpState.description.length, DESCRIPTION_MIN_CHARS);
+}
+
+/* ---------- Social preview ---------- */
+
+function displaySocialPreview(preview) {
+  const container = $('socialPreview');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!preview || !(preview.title || preview.description || preview.image)) {
+    container.innerHTML = '<div class="social-preview-placeholder">No social preview available</div>';
+    return;
+  }
+
+  const card = document.createElement('div');
+  card.className = 'social-preview-card';
+
+  if (preview.image) {
+    const img = document.createElement('img');
+    img.className = 'social-image';
+    img.alt = 'Social preview image';
+    img.addEventListener('error', () => {
+      const fallback = document.createElement('div');
+      fallback.className = 'image-error';
+      fallback.textContent = 'Image not available';
+      img.replaceWith(fallback);
+    });
+    img.src = preview.image;
+    card.appendChild(img);
+  } else {
+    const noImage = document.createElement('div');
+    noImage.className = 'image-error';
+    noImage.textContent = 'No og:image set';
+    card.appendChild(noImage);
+  }
+
+  const content = document.createElement('div');
+  content.className = 'social-preview-content';
+  const small = document.createElement('small');
+  let host = preview.url || '';
+  try {
+    host = new URL(preview.url).hostname;
+  } catch (error) {
+    // Keep the raw value.
+  }
+  small.textContent = host;
+  const heading = document.createElement('h4');
+  heading.textContent = preview.title || 'No title';
+  const paragraph = document.createElement('p');
+  paragraph.textContent = preview.description || 'No description';
+  content.append(small, heading, paragraph);
+  card.appendChild(content);
+  container.appendChild(card);
+}
+
+function renderSocial(data) {
+  const s = data.social;
+  displaySocialPreview({
+    title: s.ogTitle || s.twitterTitle || data.title.text,
+    description: s.ogDescription || s.twitterDescription || data.metaDescription.text,
+    image: s.ogImage || s.twitterImage,
+    url: s.ogUrl || reportState.pageUrl
+  });
+
+  const tags = [
+    ['og:title', s.ogTitle, 'bad'],
+    ['og:description', s.ogDescription, 'warning'],
+    ['og:image', s.ogImage, 'bad'],
+    ['og:url', s.ogUrl, 'warning'],
+    ['og:type', s.ogType, 'warning'],
+    ['twitter:card', s.twitterCard, 'warning']
+  ];
+  $('socialTags').innerHTML = tags.map(([name, value, missingTone]) => `
+    <li><code>${name}</code>${value
+      ? `<span class="tag good" title="${escapeHtml(value)}">Set</span>`
+      : `<span class="tag ${missingTone}">Missing</span>`}</li>`).join('');
+}
+
+/* ---------- Headings ---------- */
+
+function renderHeadings(data) {
+  const outline = data.headings.outline;
+  const counts = data.headings.counts;
+
+  $('headingCounts').innerHTML = [1, 2, 3, 4, 5, 6].map(level => `
+    <div class="heading-count"><strong>${counts[`h${level}`] || 0}</strong><span>H${level}</span></div>`).join('');
+
+  const issueIndexes = new Map(data.headingOrder.issues.map(issue => [issue.index, issue]));
+  $('headingsSummary').textContent = `${outline.length} heading(s) · ${counts.h1 || 0} H1 · ${data.headingOrder.issuesCount} order issue(s)`;
+
+  const list = $('headingsOutline');
+  list.innerHTML = '';
+  if (outline.length === 0) {
+    list.innerHTML = '<li class="empty">No headings found on this page.</li>';
+    return;
+  }
+
+  outline.forEach(heading => {
+    const level = Number(heading.tag.slice(1));
+    const li = document.createElement('li');
+    li.className = `lvl-${level}`;
+    li.style.paddingLeft = `${6 + (level - 1) * 16}px`;
+    const issue = issueIndexes.get(heading.index);
+    if (issue) li.classList.add('skip');
+    li.innerHTML = `
+      <span class="h-tag">${heading.tag.toUpperCase()}</span>
+      <span class="h-text">${escapeHtml(heading.text) || '<em>(empty)</em>'}</span>
+      ${issue ? `<span class="h-note">skips from ${escapeHtml(issue.from)}</span>` : ''}`;
+    list.appendChild(li);
+  });
+}
+
+/* ---------- Links & images extras ---------- */
+
+function renderUnnamedLinks(items) {
+  const list = $('unnamedLinksList');
+  list.innerHTML = '';
+  if (!items || items.length === 0) {
+    list.innerHTML = '<li class="empty">All links have a visible name or label.</li>';
+    return;
+  }
+  items.forEach(item => {
+    const li = document.createElement('li');
+    li.textContent = item.href || '(no href)';
+    list.appendChild(li);
+  });
+}
+
+function renderImageStats(data) {
+  const images = data.images;
+  const stats = [
+    ['Images', images.total, ''],
+    ['With alt text', images.withAlt, images.total && images.withAlt === images.total ? 'good' : ''],
+    ['Missing alt', images.missingAlt, images.missingAlt ? 'bad' : 'good'],
+    ['Missing size', images.missingDimensions, images.missingDimensions ? 'bad' : 'good']
+  ];
+  $('imageStats').innerHTML = stats.map(([label, value, tone]) => `
+    <div class="stat ${tone}"><strong>${value}</strong><span>${label}</span></div>`).join('');
+}
+
+/* ---------- Copy ---------- */
+
+function buildSummaryText() {
+  const data = reportState.seoData;
+  const checks = getChecks(data);
+  const lines = [
+    `SEO Checklist report for ${reportState.pageUrl}`,
+    `Score: ${reportState.scorePercent}/100 (${reportState.feedback})`,
+    `Checked: ${formatReportDate(reportState.generatedAt)}`,
+    ''
+  ];
+  const sections = [['bad', 'Issues', '✕'], ['warning', 'Warnings', '!'], ['good', 'Passed', '✓']];
+  sections.forEach(([state, title, mark]) => {
+    const items = checks.filter(check => getCheckState(check) === state);
+    if (items.length === 0) return;
+    lines.push(`${title} (${items.length}):`);
+    items.forEach(check => lines.push(`${mark} ${check.label}: ${check.text}`));
+    lines.push('');
+  });
+  lines.push(`Made with SEO Checklist for Chrome: ${STORE_URL}`);
+  return lines.join('\n');
+}
+
+function copySummary() {
+  if (!reportState.seoData) return;
+  copyText(buildSummaryText(), 'Summary copied');
+}
+
+function copyList(kind) {
+  const data = reportState.seoData;
+  if (!data) return;
+  if (kind === 'headings') {
+    const text = data.headings.outline
+      .map(heading => `${'  '.repeat(Number(heading.tag.slice(1)) - 1)}${heading.tag.toUpperCase()} ${heading.text}`)
+      .join('\n');
+    copyText(text || 'No headings', 'Outline copied');
+  } else if (kind === 'links') {
+    const externalActive = !$('externalLinksPanel').classList.contains('hidden');
+    const urls = Array.from(new Set(externalActive ? data.links.externalUrls : data.links.internalUrls));
+    copyText(urls.join('\n'), `${urls.length} link(s) copied`);
+  }
+}
+
+/* ---------- Score history ---------- */
+
+function getHistoryKey(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.origin + parsed.pathname + parsed.search;
+  } catch (error) {
+    return url;
+  }
+}
+
+// Stored only on this device (chrome.storage.local).
+async function recordHistory(url, score, failing) {
+  const key = getHistoryKey(url);
+  const { scoreHistory = {} } = await storageGet('scoreHistory');
+  const entries = Array.isArray(scoreHistory[key]) ? scoreHistory[key] : [];
+  const now = Date.now();
+  const entry = { t: now, s: score, f: failing };
+
+  // Re-checking without changes shouldn't flood the history, but a re-check
+  // after a fix should always show the change.
+  let previous = null;
+  const last = entries[entries.length - 1];
+  const sameResult = last && last.s === score && (last.f || []).join() === failing.join();
+  if (last && sameResult && now - last.t < HISTORY_MERGE_MS) {
+    previous = entries[entries.length - 2] || null;
+    entries[entries.length - 1] = entry;
+  } else {
+    previous = last || null;
+    entries.push(entry);
+  }
+  scoreHistory[key] = entries.slice(-HISTORY_PER_URL);
+
+  const keys = Object.keys(scoreHistory);
+  if (keys.length > HISTORY_MAX_URLS) {
+    keys
+      .sort((a, b) => scoreHistory[a][scoreHistory[a].length - 1].t - scoreHistory[b][scoreHistory[b].length - 1].t)
+      .slice(0, keys.length - HISTORY_MAX_URLS)
+      .forEach(oldKey => delete scoreHistory[oldKey]);
+  }
+
+  await storageSet({ scoreHistory });
+  return { entries: scoreHistory[key], previous };
+}
+
+function renderHistory(history, failingNow, scoredChecks) {
+  const { entries, previous } = history;
+  const deltaEl = $('scoreDelta');
+  const labelById = new Map(scoredChecks.map(check => [check.id, check.label]));
+
+  if (previous) {
+    const diff = reportState.scorePercent - previous.s;
+    const fixed = (previous.f || []).filter(id => !failingNow.includes(id)).map(id => labelById.get(id)).filter(Boolean);
+    const sign = diff > 0 ? `<span class="up">▲ +${diff}</span>` : (diff < 0 ? `<span class="down">▼ ${diff}</span>` : 'No change');
+    const fixedText = fixed.length ? ` · Fixed: ${escapeHtml(fixed.slice(0, 3).join(', '))}${fixed.length > 3 ? '…' : ''}` : '';
+    deltaEl.innerHTML = `${sign} since ${escapeHtml(timeAgo(previous.t))}${fixedText}`;
+  } else {
+    deltaEl.textContent = 'First check on this page. Fix an issue and re-check to track your progress.';
+  }
+
+  const best = Math.max(...entries.map(item => item.s));
+  $('historyCaption').textContent = entries.length > 1
+    ? `${entries.length} checks · best ${best}`
+    : 'Your score history starts now';
+  renderSparkline(entries.map(item => item.s));
+}
+
+function renderSparkline(values) {
+  const svg = $('historySpark');
+  const width = 120;
+  const height = 40;
+  const pad = 4;
+  if (values.length === 0) {
+    svg.innerHTML = '';
+    return;
+  }
+  const points = values.map((value, index) => {
+    const x = values.length === 1 ? width / 2 : (index / (values.length - 1)) * width;
+    const y = height - pad - (value / 100) * (height - pad * 2);
+    return [x, y];
+  });
+  const line = points.map(([x, y], index) => `${index ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const area = `${line} L${points[points.length - 1][0].toFixed(1)},${height} L${points[0][0].toFixed(1)},${height} Z`;
+  const [lastX, lastY] = points[points.length - 1];
+  svg.innerHTML = `${values.length > 1 ? `<path class="area" d="${area}"/><path class="line" d="${line}"/>` : ''}<circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="3"/>`;
+}
+
+/* ---------- Review prompt ---------- */
+
+async function maybeShowReviewPrompt() {
+  const { reviewPrompt = { count: 0, state: 'none' } } = await storageGet('reviewPrompt');
+  reviewPrompt.count = (reviewPrompt.count || 0) + 1;
+  await storageSet({ reviewPrompt });
+
+  const snoozeOver = reviewPrompt.state === 'later' && Date.now() - (reviewPrompt.laterAt || 0) > REVIEW_PROMPT_SNOOZE_MS;
+  const eligible = reviewPrompt.count >= REVIEW_PROMPT_AFTER_ANALYSES && (reviewPrompt.state === 'none' || snoozeOver);
+  $('reviewCard').classList.toggle('hidden', !eligible);
+}
+
+async function setReviewPromptState(state) {
+  const { reviewPrompt = { count: 0 } } = await storageGet('reviewPrompt');
+  reviewPrompt.state = state;
+  if (state === 'later') reviewPrompt.laterAt = Date.now();
+  await storageSet({ reviewPrompt });
+  $('reviewCard').classList.add('hidden');
 }
 
 function getHeadingOrderIssues(headings) {
@@ -432,6 +1235,47 @@ function detectGoogleAnalytics(doc) {
   return { found, ids: Array.from(ids) };
 }
 
+function stripHash(url) {
+  try {
+    const parsed = new URL(url);
+    parsed.hash = '';
+    return parsed.href.replace(/\/$/, '');
+  } catch (error) {
+    return url || '';
+  }
+}
+
+function getSchemaTypes(doc) {
+  const types = new Set();
+  const visit = node => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      node.forEach(visit);
+      return;
+    }
+    if (node['@type']) [].concat(node['@type']).forEach(type => types.add(String(type)));
+    if (node['@graph']) visit(node['@graph']);
+  };
+
+  doc.querySelectorAll('script[type="application/ld+json"]').forEach(script => {
+    try {
+      visit(JSON.parse(script.textContent));
+    } catch (error) {
+      types.add('Invalid JSON-LD');
+    }
+  });
+  doc.querySelectorAll('[itemtype]').forEach(el => {
+    const type = (el.getAttribute('itemtype') || '').split('/').pop();
+    if (type) types.add(type);
+  });
+  return Array.from(types);
+}
+
+function getMetaContent(doc, selector) {
+  const el = doc.querySelector(selector);
+  return el ? (el.getAttribute('content') || '').trim() : '';
+}
+
 function getPageSEOData(doc, pageUrl) {
   function countWords(text) {
     const trimmed = (text || '').trim();
@@ -508,6 +1352,18 @@ function getPageSEOData(doc, pageUrl) {
   const canonical = doc.querySelector('link[rel="canonical"]');
   const schema = doc.querySelector('script[type="application/ld+json"]');
   const analytics = detectGoogleAnalytics(doc);
+  const canonicalUrl = canonical ? normalizeUrl(canonical.getAttribute('href'), pageUrl) : null;
+  const robotsContent = [
+    getMetaContent(doc, 'meta[name="robots" i]'),
+    getMetaContent(doc, 'meta[name="googlebot" i]')
+  ].filter(Boolean).join(', ');
+  const robotsLower = robotsContent.toLowerCase();
+  const schemaTypes = getSchemaTypes(doc);
+  const faviconEl = doc.querySelector('link[rel~="icon" i], link[rel="shortcut icon" i], link[rel="apple-touch-icon" i]');
+  const headingCounts = { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 };
+  headingSequence.forEach(heading => {
+    headingCounts[heading.tag] += 1;
+  });
 
   return {
     title: {
@@ -520,7 +1376,13 @@ function getPageSEOData(doc, pageUrl) {
       length: metaDesc.length,
       pixelWidth: measureTextWidth(metaDesc, '14px Arial')
     },
-    headings: { h1: h1.length, h2: h2.length },
+    headings: {
+      h1: h1.length,
+      h2: h2.length,
+      firstH1: h1.length ? (h1[0].textContent || '').trim().slice(0, 160) : '',
+      outline: headingSequence,
+      counts: headingCounts
+    },
     headingOrder: {
       issuesCount: headingOrderIssues.length,
       issues: headingOrderIssues
@@ -546,7 +1408,31 @@ function getPageSEOData(doc, pageUrl) {
     },
     viewport: !!viewport,
     canonical: !!canonical,
-    schema: !!schema,
+    canonicalUrl,
+    canonicalIsSelf: !!canonicalUrl && stripHash(canonicalUrl) === stripHash(pageUrl),
+    robots: {
+      content: robotsContent,
+      noindex: /\b(noindex|none)\b/.test(robotsLower),
+      nofollow: /\b(nofollow|none)\b/.test(robotsLower)
+    },
+    lang: (doc.documentElement.getAttribute('lang') || '').trim(),
+    schema: !!schema || schemaTypes.length > 0,
+    schemaTypes,
+    favicon: faviconEl
+      ? normalizeUrl(faviconEl.getAttribute('href'), pageUrl)
+      : (pageUrl ? normalizeUrl('/favicon.ico', pageUrl) : null),
+    social: {
+      ogTitle: getMetaContent(doc, 'meta[property="og:title"]'),
+      ogDescription: getMetaContent(doc, 'meta[property="og:description"]'),
+      ogImage: normalizeUrl(getMetaContent(doc, 'meta[property="og:image"]'), pageUrl) || '',
+      ogUrl: getMetaContent(doc, 'meta[property="og:url"]'),
+      ogType: getMetaContent(doc, 'meta[property="og:type"]'),
+      siteName: getMetaContent(doc, 'meta[property="og:site_name"]'),
+      twitterCard: getMetaContent(doc, 'meta[name="twitter:card"]'),
+      twitterTitle: getMetaContent(doc, 'meta[name="twitter:title"]'),
+      twitterDescription: getMetaContent(doc, 'meta[name="twitter:description"]'),
+      twitterImage: normalizeUrl(getMetaContent(doc, 'meta[name="twitter:image"]'), pageUrl) || ''
+    },
     gaTag: analytics.found,
     analyticsIds: analytics.ids
   };
@@ -577,6 +1463,147 @@ function getLengthTooltip(field, minChars, maxPx, name) {
     return `Short ${name} (under ${minChars} characters). Add more detail: "${field.text}"`;
   }
   return `Fits in Google results (${field.pixelWidth}px of about ${maxPx}px): "${field.text}"`;
+}
+
+const CHECK_CATEGORIES = [
+  { id: 'basic', label: 'Basic SEO' },
+  { id: 'content', label: 'Content' },
+  { id: 'indexing', label: 'Indexing & Social' },
+  { id: 'technical', label: 'Technical' }
+];
+
+// impact: 3 = high, 2 = medium, 1 = low. Used to order "Top fixes".
+const CHECK_META = {
+  titleTagStatus: {
+    category: 'basic', impact: 3,
+    why: 'The title is the clickable headline in Google results and one of the strongest on-page ranking signals.',
+    fix: 'Write a unique title of about 50-60 characters with the main keyword near the start, so it fits without being cut off.'
+  },
+  metaDescStatus: {
+    category: 'basic', impact: 2,
+    why: 'The description is often used as the snippet under your title and strongly affects click-through rate.',
+    fix: 'Write a unique 120-160 character summary that matches search intent and ends with a reason to click.'
+  },
+  headingsStatus: {
+    category: 'basic', impact: 2,
+    why: 'One clear H1 tells search engines and readers what the page is about; H2s structure the sections.',
+    fix: 'Use exactly one H1 for the main topic and break the content into sections with H2s.'
+  },
+  headingOrderStatus: {
+    category: 'basic', impact: 1,
+    why: 'Skipped heading levels make the outline harder to understand for screen readers and crawlers.',
+    fix: 'Nest headings in order (H2 then H3, not H2 then H4). See the Headings tab for where levels are skipped.'
+  },
+  wordCountStatus: {
+    category: 'content', impact: 2,
+    why: 'Pages with very little text give search engines little to understand or rank.',
+    fix: 'For articles and guides, add helpful detail that answers the searcher\'s question. Short is fine for contact or product pages.'
+  },
+  imageAltsStatus: {
+    category: 'content', impact: 2,
+    why: 'Alt text helps image search, accessibility, and context when images fail to load.',
+    fix: 'Add a short, descriptive alt attribute to every meaningful image (use alt="" for purely decorative ones).'
+  },
+  internalLinksStatus: {
+    category: 'content', impact: 2,
+    why: 'Internal links help Google discover pages and pass authority between them.',
+    fix: 'Link to at least 3 related pages on your site using descriptive anchor text.'
+  },
+  externalLinksStatus: {
+    category: 'content', impact: 1,
+    why: 'Linking to trustworthy sources can add context and credibility.',
+    fix: 'Where it helps the reader, cite at least one relevant, authoritative source.'
+  },
+  linkNamesStatus: {
+    category: 'content', impact: 1,
+    why: 'Links without text or a label are meaningless to crawlers and screen readers.',
+    fix: 'Give every link visible text, an aria-label, or an image with alt text. See the Links tab for the list.'
+  },
+  indexabilityStatus: {
+    category: 'indexing', impact: 3,
+    why: 'A noindex tag keeps the page out of Google completely; nofollow stops links on it from being followed.',
+    fix: 'Remove noindex / nofollow from the robots meta tag if this page should rank.'
+  },
+  canonicalStatus: {
+    category: 'indexing', impact: 3,
+    why: 'The canonical tag tells Google which URL is the main version and prevents duplicate-content issues.',
+    fix: 'Add <link rel="canonical" href="..."> pointing to this page\'s preferred URL (or the main version if this is a duplicate).'
+  },
+  langStatus: {
+    category: 'indexing', impact: 1,
+    why: 'The lang attribute helps search engines serve the page to the right language audience.',
+    fix: 'Add a lang attribute to the <html> tag, for example <html lang="en">.'
+  },
+  socialTagsStatus: {
+    category: 'indexing', impact: 1,
+    why: 'Open Graph tags control how your page looks when shared on Facebook, LinkedIn, X and messaging apps.',
+    fix: 'Add og:title, og:description and og:image (1200x630). Check the Search & Social tab for a preview.'
+  },
+  viewportStatus: {
+    category: 'technical', impact: 3,
+    why: 'Google uses mobile-first indexing; without a viewport tag the page renders badly on phones.',
+    fix: 'Add <meta name="viewport" content="width=device-width, initial-scale=1"> to the <head>.'
+  },
+  schemaStatus: {
+    category: 'technical', impact: 2,
+    why: 'Structured data can earn rich results (stars, FAQs, prices) and helps Google understand the page.',
+    fix: 'Add JSON-LD for your page type (Article, Product, LocalBusiness, FAQ...). Test it with the Rich Results tool.'
+  },
+  gaTagStatus: {
+    category: 'technical', impact: 1,
+    why: 'Analytics lets you measure traffic and the effect of your SEO changes.',
+    fix: 'Install Google Analytics 4 (gtag.js) or Google Tag Manager on every page.'
+  },
+  imageDimensionsStatus: {
+    category: 'technical', impact: 2,
+    why: 'Images without width and height cause layout shift, which hurts Core Web Vitals (CLS).',
+    fix: 'Add width and height attributes to every <img> that match its aspect ratio.'
+  },
+  imageOptimizationStatus: {
+    category: 'technical', impact: 2,
+    why: 'Large images slow the page down, which hurts Core Web Vitals (LCP) and rankings.',
+    fix: 'Compress images, resize them to their display size, and serve WebP or AVIF. See the Images tab.'
+  },
+  brokenLinksStatus: {
+    category: 'technical', impact: 2,
+    why: 'Broken links waste crawl budget and frustrate visitors.',
+    fix: 'Fix or remove links that return errors. See the Links tab for the list.'
+  }
+};
+
+function getImageOptimizationCheckState(data) {
+  const result = reportState.imageOptimization;
+  if (data.images.auditItems.length === 0) {
+    return { good: true, warning: false, text: 'No images', tooltip: 'No images to optimize' };
+  }
+  if (result.meta && result.meta.unavailable) {
+    return { good: false, warning: true, text: 'Unavailable', tooltip: 'This check could not run on this page' };
+  }
+  if (!result.meta) {
+    return { pending: true, good: false, warning: false, text: 'Scanning...', tooltip: 'Checking image file sizes' };
+  }
+  const high = result.items.filter(item => item.scope === 'High').length;
+  const needsReview = result.items.filter(item => item.scope === 'Medium' || item.scope === 'Unknown' || item.missingDimensions).length;
+  if (high) return { good: false, warning: false, text: `${high} high`, tooltip: 'High-impact image optimization opportunities found' };
+  if (needsReview) return { good: false, warning: true, text: 'Needs review', tooltip: 'Some images can be optimized further' };
+  return { good: true, warning: false, text: 'Good', tooltip: 'No significant image optimization issues detected' };
+}
+
+function getBrokenLinksCheckState(data) {
+  const result = reportState.brokenLinks;
+  if (result.meta && result.meta.unavailable) {
+    return { good: false, warning: true, text: 'Unavailable', tooltip: 'This check could not run on this page' };
+  }
+  if (!result.meta) {
+    if (data.links.internalUrls.length === 0) {
+      return { good: true, warning: false, text: '0 links', tooltip: 'No internal links to check' };
+    }
+    return { pending: true, good: false, warning: false, text: 'Checking...', tooltip: 'Checking links for errors' };
+  }
+  const broken = result.items.length;
+  return broken
+    ? { good: false, warning: false, text: `${broken} broken`, tooltip: 'Broken links detected' }
+    : { good: true, warning: false, text: '0 broken', tooltip: 'No broken links detected' };
 }
 
 function getChecks(data) {
@@ -666,10 +1693,40 @@ function getChecks(data) {
     {
       id: 'canonicalStatus',
       label: 'Canonical Tag',
-      good: data.canonical,
-      warning: false,
-      text: data.canonical ? 'Found' : 'Missing',
-      tooltip: data.canonical ? 'Canonical tag found' : 'No canonical tag'
+      good: data.canonical && data.canonicalIsSelf,
+      warning: data.canonical && !data.canonicalIsSelf,
+      text: data.canonical ? (data.canonicalIsSelf ? 'Self' : 'Other URL') : 'Missing',
+      tooltip: data.canonical
+        ? (data.canonicalIsSelf
+          ? `Points to this page: ${data.canonicalUrl}`
+          : `Points to a different URL, so Google may index that one instead: ${data.canonicalUrl || '(invalid URL)'}`)
+        : 'No canonical tag'
+    },
+    {
+      id: 'indexabilityStatus',
+      label: 'Indexable by Google',
+      good: !data.robots.noindex && !data.robots.nofollow,
+      warning: !data.robots.noindex && data.robots.nofollow,
+      text: data.robots.noindex ? 'noindex' : (data.robots.nofollow ? 'nofollow' : 'Indexable'),
+      tooltip: data.robots.content
+        ? `Robots meta: ${data.robots.content}`
+        : 'No robots meta tag, so the default (index, follow) applies'
+    },
+    {
+      id: 'langStatus',
+      label: 'Page Language',
+      good: !!data.lang,
+      warning: !data.lang,
+      text: data.lang || 'Not set',
+      tooltip: data.lang ? `<html lang="${data.lang}">` : 'No lang attribute on <html>'
+    },
+    {
+      id: 'socialTagsStatus',
+      label: 'Social Share Tags',
+      good: !!(data.social.ogTitle && data.social.ogImage),
+      warning: !(data.social.ogTitle && data.social.ogImage) && !!(data.social.ogTitle || data.social.ogImage || data.social.twitterCard),
+      text: data.social.ogTitle && data.social.ogImage ? 'Set' : ((data.social.ogTitle || data.social.ogImage || data.social.twitterCard) ? 'Partial' : 'Missing'),
+      tooltip: `og:title ${data.social.ogTitle ? 'set' : 'missing'} · og:image ${data.social.ogImage ? 'set' : 'missing'} · twitter:card ${data.social.twitterCard ? 'set' : 'missing'}`
     },
     {
       id: 'schemaStatus',
@@ -677,7 +1734,7 @@ function getChecks(data) {
       good: data.schema,
       warning: false,
       text: data.schema ? 'Found' : 'Missing',
-      tooltip: data.schema ? 'Schema markup found' : 'No schema markup'
+      tooltip: data.schema ? `Found: ${data.schemaTypes.join(', ') || 'JSON-LD'}` : 'No schema markup'
     },
     {
       id: 'gaTagStatus',
@@ -697,95 +1754,11 @@ function getChecks(data) {
       text: data.images.total === 0 ? 'No images' : `${data.images.total - data.images.missingDimensions}/${data.images.total}`,
       tooltip: data.images.missingDimensions === 0 ? 'All images have explicit width and height' : `${data.images.missingDimensions} image(s) missing width/height`
     },
-    {
-      id: 'imageOptimizationStatus',
-      label: 'Image Optimization',
-      good: data.images.auditItems.length === 0,
-      warning: data.images.auditItems.length > 0,
-      text: data.images.auditItems.length === 0 ? 'No images' : 'Scanning...',
-      tooltip: data.images.auditItems.length === 0 ? 'No images to optimize' : 'Analyzing image sizes and optimization scope'
-    }
+    Object.assign({ id: 'imageOptimizationStatus', label: 'Image Optimization', async: true }, getImageOptimizationCheckState(data)),
+    Object.assign({ id: 'brokenLinksStatus', label: 'Broken Links', async: true }, getBrokenLinksCheckState(data))
   ];
 }
 
-function displayResults(data) {
-  // Status checks
-  const checks = getChecks(data);
-
-  // Score calculation
-  let score = 0;
-  let total = checks.length;
-  let goodCount = 0;
-  let warnCount = 0;
-
-  checks.forEach(check => {
-    let statusClass = 'bad';
-    if (check.good) {
-      statusClass = 'good';
-      score += 1;
-      goodCount += 1;
-    } else if (check.warning) {
-      statusClass = 'warning';
-      score += 0.5;
-      warnCount += 1;
-    }
-    const el = document.getElementById(check.id);
-    if (el) {
-      el.textContent = check.text;
-      el.className = `status ${statusClass}`;
-      el.setAttribute('data-tooltip', check.tooltip || '');
-    }
-  });
-
-  // Show score
-  const percent = Math.round((score / total) * 100);
-  document.getElementById('seoScore').textContent = percent + '%';
-  updateSpeedometer(document.querySelector('.score-card'), percent);
-
-  // Feedback
-  let feedback = '';
-  if (percent === 100) {
-    feedback = 'Excellent! Your page is well-optimized.';
-  } else if (percent >= 80) {
-    feedback = 'Great! Just a few improvements needed.';
-  } else if (percent >= 60) {
-    feedback = 'Good, but there are several areas to improve.';
-  } else {
-    feedback = 'Needs significant SEO improvements.';
-  }
-  document.getElementById('scoreFeedback').textContent = feedback;
-
-  reportState.seoData = data;
-  reportState.generatedAt = new Date().toISOString();
-  reportState.scorePercent = percent;
-  reportState.feedback = feedback;
-  setExportButtonState(true);
-
-  setBrokenLinksStatus('Checking...', 'warning', 'Checking links for errors');
-  resetBrokenLinksUI(data.links.internalUrls.length, data.links.externalCount);
-  resetImageOptimizationUI(data.images.auditItems.length);
-  renderLinksOverview(data.links.internalUrls, data.links.externalUrls);
-  renderImageAttributeIssues(data.images.attributeIssueItems);
-
-  // Detailed results
-  const detailedResults = document.getElementById('detailedResults');
-  detailedResults.innerHTML = `
-    <div class="detailed-item"><strong>Title:</strong> ${escapeHtml(data.title.text) || '<span class="tag">Not found</span>'}</div>
-    <div class="detailed-item"><strong>Meta Description:</strong> ${escapeHtml(data.metaDescription.text) || '<span class="tag">Not found</span>'}</div>
-    <div class="detailed-item"><strong>Content Words:</strong> ${data.content.wordCount}</div>
-    <div class="detailed-item"><strong>Images with Alt:</strong> ${data.images.withAlt} / ${data.images.total}</div>
-    <div class="detailed-item"><strong>Images Missing Alt:</strong> ${data.images.missingAlt}</div>
-    <div class="detailed-item"><strong>Heading Order Issues:</strong> ${data.headingOrder.issuesCount}</div>
-    <div class="detailed-item"><strong>Links Without Discernible Name:</strong> ${data.links.unnamedCount}</div>
-    <div class="detailed-item"><strong>Images Missing Width/Height:</strong> ${data.images.missingDimensions}</div>
-    <div class="detailed-item"><strong>Internal Links:</strong> ${data.links.internal}</div>
-    <div class="detailed-item"><strong>External Links:</strong> ${data.links.externalCount}</div>
-    <div class="detailed-item"><strong>Viewport:</strong> ${data.viewport ? '<span class="tag">Yes</span>' : '<span class="tag">No</span>'}</div>
-    <div class="detailed-item"><strong>Canonical:</strong> ${data.canonical ? '<span class="tag">Yes</span>' : '<span class="tag">No</span>'}</div>
-    <div class="detailed-item"><strong>Schema:</strong> ${data.schema ? '<span class="tag">Yes</span>' : '<span class="tag">No</span>'}</div>
-    <div class="detailed-item"><strong>Google Analytics:</strong> ${data.gaTag ? `<span class="tag">Yes</span> ${escapeHtml(data.analyticsIds.join(', '))}` : '<span class="tag">No</span>'}</div>
-  `;
-}
 
 const LINK_CHECK_LIMIT = 50;
 const LINK_CHECK_CONCURRENCY = 6;
@@ -808,22 +1781,20 @@ function resetBrokenLinksUI(totalLinks, externalCount) {
 }
 
 function setBrokenLinksStatus(text, statusClass, tooltip) {
-  const el = document.getElementById('brokenLinksStatus');
-  if (!el) return;
-  el.textContent = text;
-  el.className = `status ${statusClass}`;
-  if (tooltip) {
-    el.setAttribute('data-tooltip', tooltip);
+  updateCheckRow('brokenLinksStatus', text, statusClass, tooltip);
+  const pill = document.getElementById('brokenLinksPill');
+  if (pill) {
+    pill.textContent = text;
+    pill.className = `pill ${statusClass}`;
   }
 }
 
 function setImageOptimizationStatus(text, statusClass, tooltip) {
-  const el = document.getElementById('imageOptimizationStatus');
-  if (!el) return;
-  el.textContent = text;
-  el.className = `status ${statusClass}`;
-  if (tooltip) {
-    el.setAttribute('data-tooltip', tooltip);
+  updateCheckRow('imageOptimizationStatus', text, statusClass, tooltip);
+  const pill = document.getElementById('imageOptimizationPill');
+  if (pill) {
+    pill.textContent = text;
+    pill.className = `pill ${statusClass}`;
   }
 }
 
@@ -1000,6 +1971,7 @@ function renderImageOptimizationResults(results, meta) {
     items: sorted,
     meta
   };
+  refreshDerivedUI();
 }
 
 function isHttpUrl(url) {
@@ -1100,7 +2072,8 @@ async function pageContextResourceCheck(linkUrls, imageUrls, linkConcurrency, im
   // (cross-origin ones only if the server sends Timing-Allow-Origin).
   const loadedSizes = new Map();
   performance.getEntriesByType('resource').forEach(entry => {
-    const size = entry.encodedBodySize || entry.transferSize || 0;
+    // transferSize can be just the headers for cached files, so only body sizes count.
+    const size = entry.encodedBodySize || entry.decodedBodySize || 0;
     if (size > 0) loadedSizes.set(entry.name, size);
   });
 
@@ -1145,6 +2118,9 @@ function setRemoteChecksUnavailable(reason) {
   const imageSummary = document.getElementById('imageOptimizationSummary');
   if (brokenSummary) brokenSummary.textContent = message;
   if (imageSummary) imageSummary.textContent = message;
+  reportState.brokenLinks = { items: [], meta: { unavailable: true } };
+  reportState.imageOptimization = { items: [], meta: { unavailable: true } };
+  refreshDerivedUI();
 }
 
 async function runResourceChecks(tabId, data, runId) {
@@ -1365,6 +2341,7 @@ function renderBrokenLinks() {
       external: externalMeta
     }
   };
+  refreshDerivedUI();
 }
 
 function getStatusLabel(check) {
@@ -1893,26 +2870,6 @@ function escapeHtml(text) {
   });
 }
 
-function updateSpeedometer(card, percent) {
-  if (!card) return;
-  const clamped = Math.max(0, Math.min(100, percent));
-  const angle = (clamped / 100) * 180;
-  const rotate = angle - 90;
-  
-  // Arc length of semicircle with radius 110: π * 110 ≈ 345.575
-  const arcLength = Math.PI * 110;
-  const dashoffset = arcLength * (1 - clamped / 100);
-  
-  // Set CSS variables
-  card.style.setProperty('--score-angle', `${angle}deg`);
-  card.style.setProperty('--score-rotate', `${rotate}deg`);
-  
-  // Update SVG stroke-dashoffset
-  const ringElement = card.querySelector('.speedometer-ring');
-  if (ringElement) {
-    ringElement.style.strokeDashoffset = dashoffset;
-  }
-}
 
 function renderLinksOverview(internalUrls, externalUrls) {
   const summary = document.getElementById('linksOverviewSummary');
